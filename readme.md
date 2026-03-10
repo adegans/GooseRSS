@@ -40,8 +40,10 @@ https://yourdomain.com/eztvrss.php?access=the-access-key&id=tt12345678
 The TV Show you're subscribing to must be provided as a valid imdb id. This is a numeric value prefixed with 'tt'.  
 You can find imdb ids on the IMdB.com website and elsewhere. gooseRSS accepts the imdb id with or with the 'tt' prefix.
 
-**Uing the feeds**
-To subscribe add the feeds you create to your favorite RSS Reader. You can also load them in a browser and it should redirect to the feed reader. Any decent RSS reader will work.
+**Using the feeds**  
+To subscribe, simply add the feeds you create to your favorite RSS Reader. Any decent RSS reader will work.  
+You can also load them in a browser and it should redirect to the feed reader.  
+
 
 ### Finding the YouTube Channel Handle.
 
