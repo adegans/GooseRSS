@@ -1,0 +1,168 @@
+/* ------------------------------------------------------------------
+// EZRSS the YouTube and EZTV RSS Generator
+// ------------------------------------------------------------------
+// Simple fancy styles for a dark and useful video player that fits most screens/browsers. 
+// Based on simple.css by KevQuirk.
+// To be included with embed.php for the YoutubeEmbedBridge for RSS Bridge
+// ------------------------------------------------------------------
+// Version: 1.0
+------------------------------------------------------------------ */
+:root {
+	--sans-font: -apple-system, BlinkMacSystemFont, "Avenir Next", Avenir,
+		"Nimbus Sans L", Roboto, "Noto Sans", "Segoe UI", Arial, Helvetica,
+		"Helvetica Neue", sans-serif;
+
+	--standard-border-radius: 8px;
+	--border-width: 1px;
+
+	--bg: #000f1a;
+	--accent-bg: #001f33;
+	--text: #dcdcdc;
+	--text-light: #ababab;
+	--border: #898EA4;
+}
+
+/* Reset box-sizing */
+*, *::before, *::after {
+	box-sizing: border-box;
+}
+
+/* Reset default appearance */
+html {
+	/* Set the font globally */
+	font-family: var(--sans-font);
+	scroll-behavior: smooth;
+}
+
+/* Make the body a nice central block */
+body {
+	display:grid;
+	grid-template-rows:auto 1fr auto;
+	grid-template-columns:100%;
+	min-height:100vh; /* fallback height */
+	min-height:100svh; /* new small viewport height for modern browsers */
+    margin: 0 auto;
+	padding: 0;
+    width: 100%;
+	color: var(--text);
+	background-color: var(--bg);
+	font-size: 1.15rem;
+	line-height: 1.5;
+}
+
+body > header {
+	background-color: var(--accent-bg);
+	border-bottom: var(--border-width) solid var(--border);
+	text-align: center;
+	padding: 1rem 0.5rem;
+}
+
+body > header h1 {
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+body > footer {
+	margin: 0;
+	padding: 1rem 0.5rem;
+	background-color: var(--accent-bg);
+	color: var(--text-light);
+	font-size: 0.9rem;
+	text-align: center;
+	border-top: var(--border-width) solid var(--border);
+}
+
+body > footer p {
+	margin: 0;
+}
+
+/* Format headers */
+h1 {
+	font-size: 2rem;
+	line-height: 1.1;
+}
+
+p {
+	margin: 1.5rem 0;
+}
+
+/* Prevent long strings from overflowing container */
+p, h1 {
+	overflow-wrap: break-word;
+}
+
+/* Reduce header size on mobile */
+@media only screen and (max-width: 720px) {
+	h1 {
+		font-size: 1.5rem;
+	}
+}
+
+/* Format links & buttons */
+a,
+a:visited {
+	color: var(--text-light);
+}
+
+a:hover {
+	text-decoration: none;
+}
+
+section {
+	padding: 1em;
+	margin: 0;
+}
+
+/* Don't double separators when chaining sections */
+section + section,
+section:first-child {
+	border-top: 0;
+	padding-top: 0;
+}
+
+section + section {
+	margin-top: 0;
+}
+
+section:last-child {
+	border-bottom: 0;
+	padding-bottom: 0;
+}
+
+/* Misc body elements */
+hr {
+	border: none;
+	height: var(--border-width);
+	background: var(--border);
+	margin: 1rem auto;
+}
+
+/* YouTube embed */
+.videowrap { 
+	position: relative; 
+	overflow: hidden;
+	margin: 1em auto;
+	width: 75%;
+	border-radius: var(--standard-border-radius);
+}
+
+/* -- Make it a 16:9 player with padding */
+.videowrap::after { 
+	display: block; 
+	content: "";
+	padding-top: 56.25%;
+}
+
+/* -- Fill the entire parent div */
+.videowrap iframe { 
+	position: absolute;
+	opacity: 0.8; 
+	top: 0; 
+	left: 0; 
+	bottom: 0; 
+	right: 0; 
+	width: 100%; 
+	height: 100%; 
+	border: 0;
+	border-radius: var(--standard-border-radius);
+}
