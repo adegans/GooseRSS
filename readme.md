@@ -55,7 +55,7 @@ If it's not there you can get it from the channel details or the channel url in 
 ## Technical Stuff
 - All feeds are cached as serialized files. 
 - The cache default is 6 hours for YouTube and 24 hours for EZTV.
-- Each feed is compatible with the 403 NOT MODIFIED header for reduced traffic.
+- Each feed is compatible with the `304 NOT MODIFIED` header for reduced traffic.
 - The Watch Page has a nice dark layout to reduce eye strain.
 - The Watch Page on mobile uses a technology called Wake Lock, this prevents the device screen from sleeping while you watch a video.
 - All TV Shows are presented as a Magnet link.
