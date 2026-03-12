@@ -26,7 +26,7 @@ if(empty($access_key) OR $access_key !== trim(ACCESS)) {
 	exit;
 }
 
-// Retrieve Channel Handle */
+// Check Channel Handle */
 if(empty($handle)) {
 	if(ERROR_LOG) logger('YT: Missing `id` query parameter.');
 	exit;

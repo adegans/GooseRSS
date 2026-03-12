@@ -18,7 +18,7 @@ require_once(__DIR__ . '/config.php');
 require_once(__DIR__ . '/functions.php');
 
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
-$handle = isset($_GET['id']) ? sanitize($_GET['id']) : '';
+$handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
 
 // Basic "security" */
 if(empty($access_key) OR $access_key !== trim(ACCESS)) {
@@ -26,17 +26,15 @@ if(empty($access_key) OR $access_key !== trim(ACCESS)) {
 	exit;
 }
 
-// Retrieve IMDb id */
+// Check IMDb id */
 if(empty($handle)) {
 	if(ERROR_LOG) logger('EZTV: Missing `id` query parameter.');
 	exit;
 }
 
-// Strip leading "tt" if present – API expects numeric part only */
-$handle_numeric = str_ireplace('tt', '', $handle);
-if(!is_numeric($handle_numeric)) {
-	if(ERROR_LOG) logger('EZTV: Invalid IMDb id format.');
-	exit;
+// Add prefix if it's not there
+if(substr($handle, 0, 2) != "tt") {
+	$handle = "tt".$handle;
 }
 
 // Fetch from cache or EZTV */
@@ -44,7 +42,8 @@ $filtered = cache_get($handle, CACHE_EZTV_PREFIX, CACHE_EZTV_TTL);
 
 if(!$filtered) {
 	// Fetch the Json content from eztv
-    $jsonContent = file_get_contents(EZTV_API_URL.'?imdb_id='.$handle_numeric.'&limit=100', false, set_headers());
+	$handle_numeric = str_ireplace('tt', '', $handle);
+	$jsonContent = file_get_contents(EZTV_API_URL.'?imdb_id='.$handle_numeric.'&limit=100', false, set_headers());
 
 	if($jsonContent === false) {
 		if(ERROR_LOG) logger('EZTV: Failed to fetch the feed for IMDb id `'.$handle.'`.');
@@ -69,7 +68,7 @@ if(!$filtered) {
 	// Get Channel meta information
 	preg_match('/^(.+?)\s[Ss]\d{2}(?:[Ee]\d{2})?/', sanitize($json['torrents'][0]['title']), $m);
 	$filtered['channel_name'] = $m[1];
-	$filtered['channel_url'] = "https://eztvx.to/search/".urlencode($filtered['channel_name']);
+	$filtered['channel_url'] = "https://eztvx.to/search/".urlencode($handle);
 	$filtered['items'] = array();
 
 	// Loop through each item
@@ -109,9 +108,10 @@ if(!$filtered) {
 			// Sort out the description/item content
 			$content = '';
 		    if(!empty($thumbnail)) {
-			    $content .= "<p><img src=\"".$thumbnail."\" /></p>";
+			    $content .= "<p><a href=\"".$url_magnet."\"><img src=\"".$thumbnail."\" /></a></p>";
 			}
-			$content .= "<p><strong>Seeds:</strong> ".$seeders."<br /><strong>Size:</strong> ".human_filesize($size)."<br /><strong>Magnet:</strong> <a href=\"".$url_magnet."\">".$filename."</a><br /><strong>Hash:</strong> ".$hash."</p>";
+			$content .= "<p><strong>Seeds:</strong> ".$seeders."<br /><strong>Size:</strong> ".human_filesize($size)."<br /><strong>Magnet:</strong> <a href=\"".$url_magnet."\">".$filename."</a></p>";
+			$content .= "<p><strong>Links:</strong> <a href=\"https://www.imdb.com/title/".$handle."/\">".$filtered['channel_name']." IMDb page</a> / <a href=\"".$filtered['channel_url']."/\" title=\"Watch out for redirects and popups!\">EZTV ".$filtered['channel_name']." magnets</a><br /><strong>Magnet Hash:</strong> ".$hash."</p>";
 
 	        $filtered['items'][] = array(
 	            'id' => $hash,
@@ -151,7 +151,7 @@ echo generate_rss_feed($filtered, $now);
 if(SUCCESS_LOG) logger('EZTV: Feed processed for `' . $filtered['channel_name'] . '`.', false);
 
 // Clean up
-unset($handle, $access_key, $filtered);
+unset($handle, $handle_numeric, $access_key, $filtered);
 
 exit;
 ?>
