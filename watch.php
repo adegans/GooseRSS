@@ -19,6 +19,7 @@ $video_id = isset($_GET['vid']) ? sanitize($_GET['vid']) : '';
 
 // Only cached videos can be watched here
 $channel = cache_get($handle, CACHE_YT_PREFIX, 31104000); // 360 days. We don't care for the cache age, just that it's there.
+
 $video = false;
 if(is_array($channel)) {
 	$key = array_search($video_id, array_column($channel['items'], 'id'));
@@ -28,6 +29,10 @@ if(is_array($channel)) {
 // Figure out the URL (for sharing this page)
 $current_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
 $current_url .= '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+
+if(!$video) {
+	die("Please refresh your feeds and provide a valid Video ID.");
+}
 ?>
 
 <!DOCTYPE html>
@@ -64,7 +69,6 @@ $current_url .= '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 	<main>
 		<section id="text">
 
-			<?php if($video AND !empty($video_id)) { ?>
 			<div class="videowrap">
 				<iframe 
 					id="player" 
@@ -77,9 +81,6 @@ $current_url .= '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 					allowfullscreen
 				></iframe>
 			</div>
-			<?php } else { ?>
-			<p>Please refresh your feeds and provide a valid Video ID.</p>
-			<?php } ?>
 
 		</section>
 	</main>

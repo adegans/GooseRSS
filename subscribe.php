@@ -14,8 +14,7 @@ require_once(__DIR__ . '/config.php');
 require_once(__DIR__ . '/functions.php');
 
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
-$ythandle = isset($_GET['ytid']) ? strtolower(sanitize($_GET['ytid'])) : '';
-$ezhandle = isset($_GET['ezid']) ? strtolower(sanitize($_GET['ezid'])) : '';
+$handle = isset($_GET['handle']) ? strtolower(sanitize($_GET['handle'])) : '';
 
 // Basic "security"
 if(empty($access_key) OR $access_key !== trim(ACCESS)) {
@@ -24,30 +23,18 @@ if(empty($access_key) OR $access_key !== trim(ACCESS)) {
 	exit;
 }
 
-if(!empty($ythandle)) {
-	// Remove encoded @
-	if(substr($ythandle, 0, 3) == "%40") {
-		$ythandle = substr($ythandle, 3);
-	}
-	
-	// Remove @
-	if(substr($ythandle, 0, 1) == "@") {
-		$ythandle = substr($ythandle, 1);
+if(!empty($handle)) {
+	// It's a YouTube Handle?
+	if(substr($handle, 0, 3) == "%40" OR substr($handle, 0, 1) == "@") {
+		$handle = str_replace(array("%40", "@"), "", $handle);
+		$feed_file = "ytrss.php";
 	}
 
-	$feed_file = "ytrss";
-	$handle = $ythandle;
-}
-
-// Check IMDb id */
-if(!empty($ezhandle)) {
-	// Add prefix if it's not there
-	if(substr($ezhandle, 0, 2) != "tt") {
-		$ezhandle = "tt".$ezhandle;
+	// It's a IMDb ID?
+	if(substr($handle, 0, 2) == "tt") {
+		$handle = str_replace("tt", "", $handle);
+		$feed_file = "eztvrss.php";
 	}
-
-	$feed_file = "eztv";
-	$handle = $ezhandle;
 }
 
 // Figure out the URL (for sharing this page)
@@ -89,7 +76,7 @@ $current_url .= '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 
 	        <div class="result">
 	            <strong>Your RSS Link:</strong><br>
-	            <p>[ <a href="<?php echo MAIN_URL.$feed_file.".php?access=".ACCESS."&id=".$handle; ?>">Subscribe to <?php echo $handle; ?></a> ]</p>
+	            <p>[ <a href="<?php echo MAIN_URL.$feed_file."?access=".ACCESS."&id=".$handle; ?>">Click to subscribe</a> ]</p>
 	            
 	            <p class="copy-hint">If clicking the above link doesn't prompt your RSS reader to subscribe, right-click the link and select "Copy Link Address" to paste it into your RSS reader.</p>
 	            <p><a href="<?php echo MAIN_URL."subscribe.php?access=".ACCESS; ?>">Make another link</a></p>
@@ -97,20 +84,18 @@ $current_url .= '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 
 		    <?php } else { ?>
 
-	        <p>Enter a YouTube Channel Handle or IMDb ID in the correct field and click 'Generate Link' to get a RSS link for either item.</p>
-	        <p>The generated links won't work if you enter the wrong values. Check the error.log file for details if a feed doesn't work.</p>
+	        <p>Enter a YouTube Channel Handle (prefixed with an '@') or an IMDb ID (including the initial 'tt') and click 'Generate Link' to get a RSS link you can subscribe to.</p>
 
 		    <form method="GET">
-		        <label for="handle">Enter a YouTube Handle:</label>
+		        <label for="handle">Enter a YouTube Handle or IMDb ID:</label>
 		        <input type="hidden" name="access" id="access" value="<?php echo $access_key; ?>">
-		        <input type="text" name="ytid" id="ytid" placeholder="e.g. @arnandegans or arnandegans">
 
-				<p>- OR -</p>
-				
-		        <label for="handle">Enter an IMDb ID:</label>
-		        <input type="text" name="ezid" id="ezid" placeholder="e.g. tt0758774 or 0758774">
+		        <input type="text" name="handle" id="handle" placeholder="e.g. @arnandegans or tt0758774" required="1">
+
 		        <button type="submit">GENERATE LINK</button>
 		    </form>
+
+	        <p><small>The generated link won't work if you enter the wrong value. Check the error.log file for details if a feed doesn't work.</small></p>
 
 		    <?php } ?>
 			</div>

@@ -38,7 +38,7 @@ if(substr($handle, 0, 2) != "tt") {
 }
 
 // Fetch from cache or EZTV */
-$filtered = cache_get($handle, CACHE_EZTV_PREFIX);
+$filtered = cache_get($handle, CACHE_EZTV_PREFIX, CACHE_EZTV_TTL);
 
 if(!$filtered) {
 	// Fetch the Json content from eztv
@@ -74,18 +74,18 @@ if(!$filtered) {
 	// Loop through each item
 	foreach($json['torrents'] as $torrent) {
 		// Get the basic information
-		$hash = (isset($torrent['hash'])) ? sanitize($torrent['hash']) : 0;
-		$title = (isset($torrent['title'])) ? sanitize($torrent['title']) : '';
-		$url_magnet = (isset($torrent['magnet_url'])) ? sanitize($torrent['magnet_url']) : '';
-		$published = (isset($torrent['date_released_unix'])) ? sanitize($torrent['date_released_unix']) : null;
+		$hash = (isset($torrent['hash'])) ? sanitize((string)$torrent['hash']) : 0;
+		$title = (isset($torrent['title'])) ? sanitize((string)$torrent['title']) : '';
+		$url_magnet = (isset($torrent['magnet_url'])) ? sanitize((string)$torrent['magnet_url']) : '';
+		$published = (isset($torrent['date_released_unix'])) ? sanitize((int)$torrent['date_released_unix']) : null;
 
 		// Find additional information
-		$season = (isset($torrent['season'])) ? sanitize($torrent['season']) : 0;
-		$episode = (isset($torrent['episode'])) ? sanitize($torrent['episode']) : 0;
-		$thumbnail = (isset($torrent['small_screenshot'])) ? sanitize($torrent['small_screenshot']) : '';
-		$seeders = (isset($torrent['seeds'])) ? sanitize($torrent['seeds']) : 0;
-		$size = (isset($torrent['size_bytes'])) ? sanitize($torrent['size_bytes']) : 0;
-		$filename = (isset($torrent['filename'])) ? sanitize($torrent['filename']) : '';
+		$season = (isset($torrent['season'])) ? sanitize((int)$torrent['season']) : 0;
+		$episode = (isset($torrent['episode'])) ? sanitize((int)$torrent['episode']) : 0;
+		$thumbnail = (isset($torrent['small_screenshot'])) ? sanitize((string)$torrent['small_screenshot']) : '';
+		$seeders = (isset($torrent['seeds'])) ? sanitize((int)$torrent['seeds']) : 0;
+		$size = (isset($torrent['size_bytes'])) ? sanitize((int)$torrent['size_bytes']) : 0;
+		$filename = (isset($torrent['filename'])) ? sanitize((string)$torrent['filename']) : '';
 
 		// Ignore if title is missing
 		// Ignore if magnet link is missing
@@ -151,7 +151,6 @@ echo generate_rss_feed($filtered, $now);
 if(SUCCESS_LOG) logger('EZTV: Feed processed for `' . $filtered['channel_name'] . '`.', false);
 
 // Clean up
-cache_delete($handle, CACHE_EZTV_PREFIX, CACHE_EZTV_TTL);
 unset($handle, $handle_numeric, $access_key, $filtered);
 
 exit;

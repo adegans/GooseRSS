@@ -3,6 +3,17 @@
 Versioning is loose and lax, in fact there are no actual versions.  
 But here is the list of changes made over time, sorted by 'release' date.
 
+## March 23, 2026
+- Change: Fetched variables are now cast as a string/int/bool
+- Change: Merged YT and EZTV field on subscribe.php for easier use
+- Change: Merged cache_delete() back into cache_get()
+- Change: Better channel url for Youtube
+- Change: Better cURL headers to better mimic a browser
+- Fix: Now links/generates EZTV links with the right filename in the url
+- Fix: Removed broken duration indicator from video descriptions
+- Fix: Fail earlier on the watch page so there are no PHP warnings
+- New: Supports cookies to better imitate a browser
+
 ## March 15, 2026
 - New: Video duration added to description
 - New: Ignore/skip Premiere videos until they're 'live'

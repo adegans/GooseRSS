@@ -43,7 +43,7 @@ if(substr($handle, 0, 1) == "@") {
 }
 
 // Fetch from cache or YouTube */
-$filtered = cache_get($handle, CACHE_YT_PREFIX);
+$filtered = cache_get($handle, CACHE_YT_PREFIX, CACHE_YT_TTL);
 
 if(!$filtered) {
 	$filtered = array();
@@ -80,7 +80,7 @@ if(!$filtered) {
 
 	// Get Channel meta information
 	$filtered['channel_name'] = sanitize($xml->title);
-	$filtered['channel_url'] = sanitize($xml->author->uri);
+	$filtered['channel_url'] = sanitize($xml->author->uri)."/videos";
 	$filtered['items'] = array();
 
 	// Loop through each item
@@ -91,16 +91,15 @@ if(!$filtered) {
 		$media = $entry->children($namespaces['media']);
 
 		// Find basic information
-		$status = (isset($yt->status)) ? sanitize($yt->status) : '';
-		$video_id = (isset($yt->videoId)) ? sanitize($yt->videoId) : '';
-		$title = (isset($entry->title)) ? sanitize($entry->title) : '';
-		$video_url = (isset($entry->link['href'])) ? sanitize($entry->link['href']) : '#';
-		$published = (isset($entry->published)) ? strtotime(sanitize($entry->published)) : 0;
+		$status = (isset($yt->status)) ? sanitize((string)$yt->status) : '';
+		$video_id = (isset($yt->videoId)) ? sanitize((string)$yt->videoId) : '';
+		$title = (isset($entry->title)) ? sanitize((string)$entry->title) : '';
+		$video_url = (isset($entry->link['href'])) ? sanitize((string)$entry->link['href']) : '#';
+		$published = (isset($entry->published)) ? strtotime(sanitize((int)$entry->published)) : 0;
 
 		// Find additional information
-		$thumbnail = (isset($media->group->thumbnail->attributes()->url)) ? sanitize($media->group->thumbnail->attributes()->url) : '';
-		$description = (isset($media->group->description)) ? sanitize($media->group->description, true) : '';
-		$duration = (isset($media->group->content->attributes()->duration)) ? sanitize($media->group->content->attributes()->duration) : 0;
+		$thumbnail = (isset($media->group->thumbnail->attributes()->url)) ? sanitize((string)$media->group->thumbnail->attributes()->url) : '';
+		$description = (isset($media->group->description)) ? sanitize((string)$media->group->description, true) : '';
 
 		// Ignore if video id or title is missing, and ignore ads
 		if(empty($video_id) OR empty($title) OR strpos($video_id, 'googleads') !== false) {
@@ -108,7 +107,7 @@ if(!$filtered) {
 		}
 		
 		// Skip/ignore live and premiere videos until they're published
-		if(!empty($status) AND ($status === 'live' OR ($status === 'upcoming' AND $duration < 1))) {
+		if(!empty($status) AND ($status === 'live' OR $status === 'upcoming')) {
 			continue;
 		}
 
@@ -137,9 +136,6 @@ if(!$filtered) {
 			    $content .= "<p><a href=\"".$url_embed."\"><img src=\"".$thumbnail."\" /></a></p>";
 			}
 			$content .= "<p>Video links: <a href=\"".$url_embed."\">Watch embedded in browser</a> or <a href=\"".$video_url."\">watch on YouTube</a>.</p>";
-			if($duration > 0) {
-				$content .= "<p>Length: ".human_timestamp($duration)."</p>";
-			}
 			if(strlen($description) > 0) {
 				$content .= $description;
 			}
@@ -183,7 +179,6 @@ echo generate_rss_feed($filtered, $now);
 if(SUCCESS_LOG) logger('YT: Feed processed for Channel ID `' . $filtered['channel_name'] . '`.', false);
 
 // Clean up
-cache_delete($handle, CACHE_YT_PREFIX, CACHE_YT_TTL);
 unset($handle, $access_key, $filtered);
 
 exit;

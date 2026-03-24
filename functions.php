@@ -22,23 +22,21 @@ function cache_set($key, $data, $prefix) {
 	@file_put_contents($file, serialize($data));
 }
 
-function cache_get($key, $prefix) {
+function cache_get($key, $prefix, $ttl) {
 	$file = __DIR__ . CACHE_DIR . '/' . $prefix . md5($key) . '.cache';
 
+	// If no file exists
 	if(!is_file($file)) {
 		return false;
 	}
 
-	return unserialize(file_get_contents($file));
-}
-
-function cache_delete($key, $prefix, $ttl) {
-	$file = __DIR__ . CACHE_DIR . '/' . $prefix . md5($key) . '.cache';
-
 	// Delete if expired
 	if(filemtime($file) < (time() - $ttl)) {
 		unlink($file);
+		return false;
 	}
+
+	return unserialize(file_get_contents($file));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -109,19 +107,20 @@ function logger($error_message, $error = true) {
 /* DO CURL REQUEST															*/
 /* ------------------------------------------------------------------------ */
 function make_request($url) {	
-    $headers = array(
-		'Accept: text/html, application/xhtml+xml, application/xml;q=0.8, application/json;q=0.9, */*;q=0.7',
-		'Accept-Language: en-US,en;q=0.5',
-		'Accept-Encoding: gzip, deflate',
-// 		'Connection: keep-alive',
-		'Upgrade-Insecure-Requests: 1',
-		'User-Agent: '.trim(USER_AGENT),
-		'Sec-Fetch-Dest: document',
-		'Sec-Fetch-Mode: navigate',
-		'Sec-Fetch-Site: none',
-//		'Pragma: no-cache',
-//		'Cache-Control: no-cache',
-    );
+	$headers = array(
+	    "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0",
+	    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+	    "Accept-Language: en-US,en;q=0.5",
+	    "Accept-Encoding: gzip, deflate, br, zstd",
+	    "Connection: keep-alive",
+	    "Upgrade-Insecure-Requests: 1",
+	    "Sec-Fetch-Dest: document",
+	    "Sec-Fetch-Mode: navigate",
+	    "Sec-Fetch-Site: none",
+	    "Sec-Fetch-User: ?1",
+	    "Priority: u=1",
+	    "Te: trailers"
+	);
 
 	$ch = curl_init();
 
@@ -129,14 +128,20 @@ function make_request($url) {
 	curl_setopt($ch, CURLOPT_HTTPGET, 1); // Redundant? Probably...
 	curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTPS | CURLPROTO_HTTP);
 	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-	curl_setopt($ch, CURLOPT_ENCODING, 'gzip,deflate');
+//	curl_setopt($ch, CURLOPT_ENCODING, 'gzip,deflate');
+	curl_setopt($ch, CURLOPT_ENCODING, "");
 	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+	curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 	curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
 	curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTPS | CURLPROTO_HTTP);
 	curl_setopt($ch, CURLOPT_TIMEOUT, 3);
 	curl_setopt($ch, CURLOPT_VERBOSE, false);
+	// Do some cookies
+	$cookie_storage = __DIR__ . CACHE_DIR . '/sessions.cookie';
+	curl_setopt($ch, CURLOPT_COOKIEJAR, $cookie_storage);
+	curl_setopt($ch, CURLOPT_COOKIEFILE, $cookie_storage);
 
 	// execute
 	if(!$response = curl_exec($ch)) {
