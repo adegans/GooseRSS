@@ -20,13 +20,13 @@ require_once(__DIR__ . '/functions.php');
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
 
-// Basic "security" */
+// Basic "security"
 if(empty($access_key) OR $access_key !== trim(ACCESS)) {
 	if(ERROR_LOG) logger('EZTV: Access key incorrect.');
 	exit;
 }
 
-// Check IMDb id */
+// Check IMDb id
 if(empty($handle)) {
 	if(ERROR_LOG) logger('EZTV: Missing `id` query parameter.');
 	exit;
@@ -37,23 +37,32 @@ if(substr($handle, 0, 2) != "tt") {
 	$handle = "tt".$handle;
 }
 
-// Fetch from cache or EZTV */
+// Delete old cache files (from any tv show)
+cache_delete(CACHE_EZTV_PREFIX, CACHE_EZTV_TTL);
+
+// Fetch from cache or EZTV
 $filtered = cache_get($handle, CACHE_EZTV_PREFIX, CACHE_EZTV_TTL);
 
 if(!$filtered) {
 	// Fetch the Json content from eztv
 	$handle_numeric = str_ireplace('tt', '', $handle);
-	$jsonContent = make_request(EZTV_API_URL.'?imdb_id='.$handle_numeric.'&limit=100');
+	$response = make_request(EZTV_API_URL.'?imdb_id='.$handle_numeric.'&limit=100');
 
-	if($jsonContent === false) {
-		if(ERROR_LOG) logger('EZTV: Failed to fetch the feed for IMDb id `'.$handle.'`.');
+	// Handle errors
+	if($response['errno'] !== 0) {
+		if(ERROR_LOG) logger('cURL Error: IMDb id `'.$handle.'`. Error: '.$response['error']);
+		exit;
+	} 
+	
+	if($response['code'] !== 200) {
+		if(ERROR_LOG) logger('EZTV: Failed to fetch the feed for IMDb id `'.$handle.'`. Error: '.$response['code'].'.');
 		exit;
 	}
 
     // Decode JSON
-    $json = json_decode($jsonContent, true);
+    $json = json_decode($response['body'], true);
     if(!is_array($json) OR !isset($json['torrents'])) {
-		if(ERROR_LOG) logger('EZTV: Invalid response from EZTV API for IMDb id `'.$handle.'`.');
+		if(ERROR_LOG) logger('EZTV: Invalid json response from EZTV API for IMDb id `'.$handle.'`.');
 		exit;
     }
 
@@ -134,9 +143,9 @@ if(!$filtered) {
 /* ------------------------------------------------------------------------ */
 /* BUILD AND OUTPUT THE RSS FEED											*/
 /* ------------------------------------------------------------------------ */
-$now = time();
+$builddate = $filtered['items'][0]['date_released']; // Get date from newest item
 
-if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $now) {
+if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= time()) {
 	header('HTTP/1.1 304 Not Modified', true);
 	header('Cache-Control: max-age='.CACHE_EZTV_TTL.', private', true);
 	exit;
@@ -144,14 +153,11 @@ if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MOD
 
 header('Content-Type: application/rss+xml; charset=UTF-8', true);
 header('Cache-Control: max-age='.CACHE_EZTV_TTL.', private', true);
-header('Last-Modified: '.date('r', $now), true);
-header('ETag: "'.$handle.'-'.$now.'"', true);
+header('Last-Modified: '.date('r', $builddate), true);
+header('ETag: "'.$handle.'-'.$builddate.'"', true);
 
-echo generate_rss_feed($filtered, $now);
+echo generate_rss_feed($filtered, $builddate);
 if(SUCCESS_LOG) logger('EZTV: Feed processed for `' . $filtered['channel_name'] . '`.', false);
-
-// Clean up
-unset($handle, $handle_numeric, $access_key, $filtered);
 
 exit;
 ?>

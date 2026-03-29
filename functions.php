@@ -30,13 +30,40 @@ function cache_get($key, $prefix, $ttl) {
 		return false;
 	}
 
-	// Delete if expired
-	if(filemtime($file) < (time() - $ttl)) {
-		unlink($file);
-		return false;
-	}
-
 	return unserialize(file_get_contents($file));
+}
+
+function cache_delete($prefix, $ttl) {
+	$folder = __DIR__ . CACHE_DIR . '/';
+	$length = strlen($prefix);
+
+	if(is_dir($folder)) {
+		$length = strlen($prefix);
+
+		$cachefile = __DIR__ . CACHE_DIR . '/timer.tmp';
+		$timer = (!is_file($cachefile)) ? 0 : file_get_contents($cachefile);
+		$yesterday = time() - 86400;
+
+		if($timer < $yesterday) {
+		    if($handle = opendir($folder)) {
+			    // Loop through all files
+		        while(($file = readdir($handle)) !== false) {
+					// Only delete cache files (*.cache)
+					$extension = pathinfo($file, PATHINFO_EXTENSION);
+					if($file == '.' OR $file == '..' OR $extension != 'cache' OR substr($file, 0, $length) != $prefix) continue;
+	
+					// Delete if expired
+					if(filemtime($folder.$file) < (time() - $ttl)) {
+						@unlink($folder.$file);
+					}
+		        }
+				
+		        closedir($handle);
+		    }
+
+			@file_put_contents($cachefile, time());
+		}		        
+	}
 }
 
 /* ------------------------------------------------------------------------ */
@@ -143,14 +170,14 @@ function make_request($url) {
 	curl_setopt($ch, CURLOPT_COOKIEJAR, $cookie_storage);
 	curl_setopt($ch, CURLOPT_COOKIEFILE, $cookie_storage);
 
-	// execute
-	if(!$response = curl_exec($ch)) {
-	    // some kind of an error happened
-		if(ERROR_LOG) logger('cURL Error: '.curl_error($ch));
-	    curl_close($ch);
-		
-		return false;
-	}
+	$response = curl_exec($ch);
+
+	$response = array(
+		'code' => curl_getinfo($ch, CURLINFO_HTTP_CODE),
+		'error'     => curl_error($ch),
+		'errno'     => curl_errno($ch),
+		'body'      => $response
+	);
 
 	curl_close($ch);
 
@@ -162,10 +189,16 @@ function make_request($url) {
 /* ------------------------------------------------------------------------ */
 function get_youtube_channel_id($handle) {	
 	// Fetch the HTML
-	$html = make_request('https://www.youtube.com/@'.$handle.'/videos');
+	$response = make_request('https://www.youtube.com/@'.$handle.'/videos');
 
-	if($html === false) {
-		if(ERROR_LOG) logger('YT: Could not access the URL for Channel `@'.$handle.'`.');
+	// Handle errors
+	if($response['errno'] !== 0) {
+		if(ERROR_LOG) logger('cURL Error: Channel ID `@'.$handle.'`. Error: '.$response['error']);
+		exit;
+	} 
+	
+	if($response['code'] !== 200) {
+		if(ERROR_LOG) logger('YT: Could not access the URL for Channel `@'.$handle.'`. Error: '.$response['code'].'.');
 		exit;
 	}
 
@@ -184,7 +217,7 @@ function get_youtube_channel_id($handle) {
 	
 	// Find, cache and return the Channel ID
 	foreach($patterns as $pattern) {
-		if(preg_match($pattern, $html, $matches)) {
+		if(preg_match($pattern, $response['body'], $matches)) {
 			return $matches[1];
 		}
 	}
@@ -195,14 +228,14 @@ function get_youtube_channel_id($handle) {
 /* ------------------------------------------------------------------------ */
 /* PUT RSS FEED TOGETHER												 	*/
 /* ------------------------------------------------------------------------ */
-function generate_rss_feed($filtered, $now) {
+function generate_rss_feed($filtered, $builddate) {
 	$rss = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 	$rss .= "<rss version=\"2.0\">\n";
 	$rss .= "  <channel>\n";
 	$rss .= "    <title>".$filtered['channel_name']."</title>\n";
 	$rss .= "    <description>RSS feed for ".$filtered['channel_name']."</description>\n";
 	$rss .= "    <link>".$filtered['channel_url']."</link>\n";
-	$rss .= "    <lastBuildDate>".date('r', $now)."</lastBuildDate>\n";
+	$rss .= "    <lastBuildDate>".date('r', $builddate)."</lastBuildDate>\n";
 	$rss .= "    <generator>gooseRSS</generator>\n";
 	
 	foreach($filtered['items'] as $item) {

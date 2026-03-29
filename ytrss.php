@@ -26,7 +26,7 @@ if(empty($access_key) OR $access_key !== trim(ACCESS)) {
 	exit;
 }
 
-// Check Channel Handle */
+// Check Channel Handle
 if(empty($handle)) {
 	if(ERROR_LOG) logger('YT: Missing `id` query parameter.');
 	exit;
@@ -42,7 +42,10 @@ if(substr($handle, 0, 1) == "@") {
 	$handle = substr($handle, 1);
 }
 
-// Fetch from cache or YouTube */
+// Delete old cache files (from any channeL)
+cache_delete(CACHE_YT_PREFIX, CACHE_YT_TTL);
+
+// Fetch from cache or YouTube
 $filtered = cache_get($handle, CACHE_YT_PREFIX, CACHE_YT_TTL);
 
 if(!$filtered) {
@@ -59,24 +62,30 @@ if(!$filtered) {
 	}
 
 	// Fetch the XML content from YouTube
-	$xmlContent = make_request('https://www.youtube.com/feeds/videos.xml?channel_id='.$filtered['channel_id']);
+	$response = make_request('https://www.youtube.com/feeds/videos.xml?channel_id='.$filtered['channel_id']);
 
-	if($xmlContent === false) {
-		if(ERROR_LOG) logger('YT: Failed to fetch the feed for Channel `@'.$handle.'`.');
+	// Handle errors
+	if($response['errno'] !== 0) {
+		if(ERROR_LOG) logger('cURL Error: Channel ID `@'.$handle.'`. Error: '.$response['error']);
+		exit;
+	} 
+	
+	if($response['code'] !== 200) {
+		if(ERROR_LOG) logger('YT: Failed to fetch the feed for channel `@'.$handle.'`. Error: '.$response['code'].'.');
 		exit;
 	}
 
-	// Maybe some kind of error page?
-	if(stripos($xmlContent, '<!DOCTYPE html>') !== false) {
-		preg_match('/<title>(.*?)<\/title>/si', $xmlContent, $errors);
+	// Finally - Maybe some kind of error page?
+	if(stripos($response['body'], '<!DOCTYPE html>') !== false) {
+		preg_match('/<title>(.*?)<\/title>/si', $response['body'], $errors);
 		$error = (isset($errors[1])) ? $errors[1] : 'Unknown';
 
-		if(ERROR_LOG) logger('YT: Response for Channel `@'.$handle.'`. Error: '.$error.'.');
+		if(ERROR_LOG) logger('YT: Failed to fetch the feed for channel `@'.$handle.'`. Error: '.$error.'.');
 		exit;
 	}
 
 	// Load the XML
-	$xml = new SimpleXMLElement($xmlContent);
+	$xml = new SimpleXMLElement($response['body']);
 
 	// Get Channel meta information
 	$filtered['channel_name'] = sanitize($xml->title);
@@ -95,7 +104,7 @@ if(!$filtered) {
 		$video_id = (isset($yt->videoId)) ? sanitize((string)$yt->videoId) : '';
 		$title = (isset($entry->title)) ? sanitize((string)$entry->title) : '';
 		$video_url = (isset($entry->link['href'])) ? sanitize((string)$entry->link['href']) : '#';
-		$published = (isset($entry->published)) ? strtotime(sanitize((int)$entry->published)) : 0;
+		$published = (isset($entry->published)) ? strtotime(sanitize((string)$entry->published)) : 0;
 
 		// Find additional information
 		$thumbnail = (isset($media->group->thumbnail->attributes()->url)) ? sanitize((string)$media->group->thumbnail->attributes()->url) : '';
@@ -107,7 +116,7 @@ if(!$filtered) {
 		}
 		
 		// Skip/ignore live and premiere videos until they're published
-		if(!empty($status) AND ($status === 'live' OR $status === 'upcoming')) {
+		if(!empty($status) AND ($status == 'live' OR $status == 'upcoming')) {
 			continue;
 		}
 
@@ -162,9 +171,9 @@ if(!$filtered) {
 /* ------------------------------------------------------------------------ */
 /* BUILD AND OUTPUT THE RSS FEED											*/
 /* ------------------------------------------------------------------------ */
-$now = time();
+$builddate = $filtered['items'][0]['date_released']; // Get date from newest item
 
-if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $now) {
+if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= time()) {
 	header('HTTP/1.1 304 Not Modified', true);
 	header('Cache-Control: max-age='.CACHE_YT_TTL.', private', true);
 	exit;
@@ -172,14 +181,11 @@ if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MOD
 
 header('Content-Type: application/rss+xml; charset=UTF-8', true);
 header('Cache-Control: max-age='.CACHE_YT_TTL.', private', true);
-header('Last-Modified: '.date('r', $now), true);
-header('ETag: "'.$handle.'-'.$now.'"', true);
+header('Last-Modified: '.date('r', $builddate), true);
+header('ETag: "'.$handle.'-'.$builddate.'"', true);
 
-echo generate_rss_feed($filtered, $now);
+echo generate_rss_feed($filtered, $builddate);
 if(SUCCESS_LOG) logger('YT: Feed processed for Channel ID `' . $filtered['channel_name'] . '`.', false);
-
-// Clean up
-unset($handle, $access_key, $filtered);
 
 exit;
 ?>
