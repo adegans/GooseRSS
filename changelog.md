@@ -4,6 +4,9 @@ Versioning is loose and lax, in fact there are no actual versions.
 But here is the list of changes made over time, sorted by 'release' date.
 
 ## March 29, 2026
+- Fix: Cache delete timer
+
+## March 29, 2026
 - New: Output errors as part of feed
 - New: Separate cleanup function (cache_delete()) for cache
 - Change: Improved handling when feed name and url are empty/missing

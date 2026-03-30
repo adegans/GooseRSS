@@ -36,24 +36,24 @@ function cache_get($key, $prefix, $ttl) {
 function cache_delete($prefix, $ttl) {
 	$folder = __DIR__ . CACHE_DIR . '/';
 	$length = strlen($prefix);
+	$now = time();
 
 	if(is_dir($folder)) {
 		$length = strlen($prefix);
 
 		$cachefile = __DIR__ . CACHE_DIR . '/timer.tmp';
 		$timer = (!is_file($cachefile)) ? 0 : file_get_contents($cachefile);
-		$yesterday = time() - 86400;
 
-		if($timer < $yesterday) {
+		if($timer < ($now - $ttl)) {
 		    if($handle = opendir($folder)) {
 			    // Loop through all files
 		        while(($file = readdir($handle)) !== false) {
 					// Only delete cache files (*.cache)
-					$extension = pathinfo($file, PATHINFO_EXTENSION);
+					$extension = pathinfo($file, PATHINFO_EXTENSION);					
 					if($file == '.' OR $file == '..' OR $extension != 'cache' OR substr($file, 0, $length) != $prefix) continue;
 	
 					// Delete if expired
-					if(filemtime($folder.$file) < (time() - $ttl)) {
+					if(filemtime($folder.$file) < ($now - $ttl)) {
 						@unlink($folder.$file);
 					}
 		        }
@@ -61,7 +61,7 @@ function cache_delete($prefix, $ttl) {
 		        closedir($handle);
 		    }
 
-			@file_put_contents($cachefile, time());
+			@file_put_contents($cachefile, $now);
 		}		        
 	}
 }
