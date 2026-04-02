@@ -3,17 +3,26 @@
 Versioning is loose and lax, in fact there are no actual versions.  
 But here is the list of changes made over time, sorted by 'release' date.
 
+## April 2, 2026
+- Fix: Consistent use trailing / for MAIN_URL
+- New: When adding a feed a welcome item is added as a placeholder
+- New: Successful deletion of old cache files logged in success.log 
+- Change: Feeds now keep up to 50 items in cache
+- Change: Old (and orphaned) cache files cleared once a month around 11AM GMT
+- Rollback: Feeds silently fail again if any error occurs while fetching new data
+- Rollback: Removed ERROR_FEED from default-config.php
+- Remove: Ability to skip "Live" and "Premiere" videos since it's nearly undetectable from XML alone
+
 ## April 1, 2026
 - Update: Refined cache cleanup routine
 - New: Moved check if /cache exists into check_config()
 - New: Moved check if /cache/timer.tmp exists into check_config()
 - Change: Output errors as part of feed now an option in default-config.php
-- Fix: Cache delete timer
 - Fix: Empty channel_name when the feed has an error
 - Fix: Empty channel_url when the feed has an error
 
 ## March 29, 2026
-- Fix: Cache delete timer
+- Fix: Cache delete timer better check if cache should be deleted
 
 ## March 29, 2026
 - New: Output errors as part of feed

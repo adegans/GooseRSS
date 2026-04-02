@@ -10,16 +10,13 @@
 *  liability that might arise from its use.
 --------------------------------------------------------------------------- */
 
-/* ------------------------------------------------------------------------ */
-/* MAIN LOGIC                                                               */
-/* ------------------------------------------------------------------------ */
-
 require_once(__DIR__ . '/config.php');
 require_once(__DIR__ . '/functions.php');
 
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
 $now = time();
+$check_interval = $now - CACHE_EZTV_TTL;
 
 // Basic "security"
 if(empty($access_key) OR $access_key !== trim(ACCESS)) {
@@ -38,52 +35,67 @@ if(substr($handle, 0, 2) != "tt") {
 	$handle = "tt".$handle;
 }
 
-// Make sure certain files and folders exist
+// Make sure certain files and folders exist and clean up cache
 check_config();
 
-// Delete old cache files (from any tv show)
-cache_delete(CACHE_EZTV_TTL);
-
 // Fetch from cache or EZTV
-$filtered = cache_get($handle, CACHE_EZTV_PREFIX);
+$feed = cache_get($handle, CACHE_EZTV_PREFIX);
 
-if(!$filtered) {
-	$filtered = $response_errors = array();
+if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
+	// Create initial item for feeds without cache
+	if(!is_array($feed)) {
+		$interval = floor(CACHE_EZTV_TTL / 3600);
+
+		$feed = array();
+		$feed['channel_name'] = $handle;
+		$feed['channel_url'] = "https://eztvx.to/search/".urlencode($handle);
+	    $feed['items'][] = array(
+			'id' => 'init',
+			'title' => 'Welcome to your new feed for TV Show '.$handle.'!',
+			'link' => $feed['channel_url'],
+			'date_released' => $now,
+			'description' => "<p>The feed will be processed shortly and episodes will start to show up here!<br /><small>Feeds are refreshed approximately every ".$interval." hours.</small></p>",
+	    );
+	}
+
+	$has_error = false;
 
 	// Fetch the Json content from eztv
 	$handle_numeric = str_ireplace('tt', '', $handle);
 	$response = make_request(EZTV_API_URL.'?imdb_id='.$handle_numeric.'&limit=100');
 
-	// Handle errors
+	// Handle response errors
 	if($response['errno'] !== 0) {
-		if(ERROR_LOG) logger('CURL: IMDb id `'.$handle.'`. Error: '.$response['error']);
-		if(ERROR_FEED) $response_errors['curl'] = 'IMDb id `'.$handle.'`. Error: '.$response['error'].'.';
+		if(ERROR_LOG) logger('CURL: IMDb id '.$handle.'. Error: '.$response['error']);
+		$has_error = true;
 	} 
 	
 	if($response['code'] !== 200) {
-		if(ERROR_LOG) logger('EZTV: Could not fetch feed for `'.$handle.'`. Error: '.$response['code'].'.');
-		if(ERROR_FEED) $response_errors['feed_response'] = 'Could not fetch feed for `'.$handle.'`. Error: '.$response['code'].'.';
+		if(ERROR_LOG) logger('EZTV: Could not fetch feed for '.$handle.'. Error: '.$response['code'].'.');
+		$has_error = true;
 	}
 
     // Decode JSON
     $json = json_decode($response['body'], true);
+
+	// Handle content errors
     if(!is_array($json) OR !isset($json['torrents'])) {
-		if(ERROR_LOG) logger('EZTV: Invalid json for `'.$handle.'`.');
-		if(ERROR_FEED) $response_errors['invalid_content'] = 'Invalid json for `'.$handle.'`.';
+		if(ERROR_LOG) logger('EZTV: Invalid data for '.$handle.'.');
+		$has_error = true;
     }
 
-	// Bail if there are no torrents
     if($json["torrents_count"] == 0) {
-		if(ERROR_LOG) logger('EZTV: No torrents for `'.$handle.'`.');
-		if(ERROR_FEED) $response_errors['no_content'] = 'No torrents for `'.$handle.'`.';
+		if(ERROR_LOG) logger('EZTV: No torrents for '.$handle.'.');
+		$has_error = true;
     }
 	
-	if(empty($response_errors)) {
+	if(!$has_error) {	
 		// Get Channel meta information
 		preg_match('/^(.+?)\s[Ss]\d{2}(?:[Ee]\d{2})?/', sanitize($json['torrents'][0]['title']), $m);
-		$filtered['channel_name'] = (strlen($m[1]) > 0) ? $m[1] : 'Temporary - '.$handle;
-		$filtered['channel_url'] = "https://eztvx.to/search/".urlencode($handle);
-		$filtered['items'] = array();
+		$feed['channel_name'] = (strlen($m[1]) > 0) ? $m[1] : $handle;
+		$feed['channel_url'] = "https://eztvx.to/search/".urlencode($handle);
+		$feed['checked'] = $now;
+		$feed['http_code'] = $response['code'];
 	
 		// Loop through each item
 		foreach($json['torrents'] as $torrent) {
@@ -114,7 +126,7 @@ if(!$filtered) {
 		    }
 		
 			// Only add unique torrents
-			if(!array_search($hash, array_column($filtered['items'], 'id'))) {
+			if(!array_search($hash, array_column($feed['items'], 'id'))) {
 				// Clean up season and episode number
 				if($season < 10) $season = '0'.$season;
 				if($episode < 10) $episode = '0'.$episode;
@@ -125,9 +137,9 @@ if(!$filtered) {
 				    $content .= "<p><a href=\"".$url_magnet."\"><img src=\"".$thumbnail."\" /></a></p>";
 				}
 				$content .= "<p><strong>Seeds:</strong> ".$seeders."<br /><strong>Size:</strong> ".human_filesize($size)."<br /><strong>Magnet:</strong> <a href=\"".$url_magnet."\">".$filename."</a></p>";
-				$content .= "<p><strong>Links:</strong> <a href=\"https://www.imdb.com/title/".$handle."/\">IMDb page</a> / <a href=\"".$filtered['channel_url']."\" title=\"Watch out for redirects and popups!\">All EZTV magnets</a><br /><strong>Magnet Hash:</strong> ".$hash."</p>";
+				$content .= "<p><strong>Links:</strong> <a href=\"https://www.imdb.com/title/".$handle."/\">IMDb page</a> / <a href=\"".$feed['channel_url']."\" title=\"Watch out for redirects and popups!\">All EZTV magnets</a><br /><strong>Magnet Hash:</strong> ".$hash."</p>";
 	
-		        $filtered['items'][] = array(
+		        $feed['items'][] = array(
 		            'id' => $hash,
 		            'title' => $title,
 		            'link' => $url_magnet,
@@ -140,32 +152,17 @@ if(!$filtered) {
 		}
 		
 		// Sort by date_released DESC */
-		usort($filtered['items'], fn($a, $b) => $b['date_released'] <=> $a['date_released']);
-	} else {
-		$content = "<p>Unfortunately something went wrong getting the feed. Usually this resolves itself within a few hours!<br /><small>If the issue persists after one or two days, check the config.php to try an alternate URL for EZTV.</small></p>";
-		$content .= "<p>";
-		foreach($response_errors as $key => $text) {
-			$content .= $key.": ".$text."</br>";
-		}
-		$content .= "</p>";
-
-	    $filtered['items'][] = array(
-			'id' => '',
-			'title' => 'Error! BeepBoop!',
-			'link' => '',
-			'date_released' => $now,
-			'description' => $content,
-			'thumbnail' => ''
-	    );
+		usort($feed['items'], fn($a, $b) => $b['date_released'] <=> $a['date_released']);
+		
+		// Keep the 50 newest items
+		$feed['items'] = array_slice($feed['items'], 0, 50);
 	}
 
-	cache_set($handle, $filtered, CACHE_EZTV_PREFIX);
+	cache_set($handle, $feed, CACHE_EZTV_PREFIX);
 }
 
-/* ------------------------------------------------------------------------ */
-/* BUILD AND OUTPUT THE RSS FEED											*/
-/* ------------------------------------------------------------------------ */
-$builddate = $filtered['items'][0]['date_released']; // Get date from newest item
+// BUILD AND OUTPUT THE RSS FEED
+$builddate = $feed['items'][0]['date_released']; // Get date from newest item
 
 if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $now) {
 	header('HTTP/1.1 304 Not Modified', true);
@@ -178,8 +175,8 @@ header('Cache-Control: max-age='.CACHE_EZTV_TTL.', private', true);
 header('Last-Modified: '.date('r', $builddate), true);
 header('ETag: "'.$handle.'-'.$builddate.'"', true);
 
-echo generate_rss_feed($filtered, $builddate);
-if(SUCCESS_LOG) logger('EZTV: Feed processed for `' . $filtered['channel_name'] . '`.', false);
+echo generate_rss_feed($feed, $builddate);
+if(SUCCESS_LOG) logger('EZTV: Feed processed for `' . $feed['channel_name'] . '`.', false);
 
 exit;
 ?>

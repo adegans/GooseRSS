@@ -10,16 +10,13 @@
 *  liability that might arise from its use.
 --------------------------------------------------------------------------- */
 
-/* ------------------------------------------------------------------------ */
-/* MAIN LOGIC                                 								*/
-/* ------------------------------------------------------------------------ */
-
 require_once(__DIR__ . '/config.php');
 require_once(__DIR__ . '/functions.php');
 
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
 $now = time();
+$check_interval = $now - CACHE_YT_TTL;
 
 // Basic "security"
 if(empty($access_key) OR $access_key !== trim(ACCESS)) {
@@ -43,66 +40,71 @@ if(substr($handle, 0, 1) == "@") {
 	$handle = substr($handle, 1);
 }
 
-// Make sure certain files and folders exist
+// Make sure certain files and folders exist and clean up cache
 check_config();
 
-// Skip deleting caches during these hours so no errors occur from this temporary (almost daily) problem
-// Vaguely defined hours for when the YT feeds are likely unavailable
-$start = gmmktime(5, 0, 0, gmdate('n'), gmdate('j'), gmdate('Y')); // 5AM GMT/UTC
-$end = $start + 14400; // 4 hours
-
-if($now < $start OR $now > $end) {	
-	// Delete old cache files (from any feed)
-	cache_delete(CACHE_YT_TTL);
-}
-
 // Fetch from cache or YouTube
-$filtered = cache_get($handle, CACHE_YT_PREFIX);
+$feed = cache_get($handle, CACHE_YT_PREFIX);
 
-if(!$filtered) {
-	$filtered = $response_errors = array();
+if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
+	// Create initial item for feeds without cache
+	if(!is_array($feed)) {
+		$interval = floor(CACHE_EZTV_TTL / 3600);
 
-	// Find the Channel ID
-	if(!isset($filtered['channel_id'])) {
-		$filtered['channel_id'] = get_youtube_channel_id($handle);
+		$feed = array();
+		$feed['channel_name'] = $handle;
+		$feed['channel_url'] = "https://youtube.com/@".$handle;
+	    $feed['items'][] = array(
+			'id' => 'init',
+			'title' => 'Welcome to your new feed for channel '.$handle.'!',
+			'link' => $feed['channel_url'],
+			'date_released' => $now,
+			'description' => "<p>The feed will be processed shortly and videos will start to show up here!<br /><small>Feeds are refreshed approximately every ".$interval." hours.</small></p>",
+			'thumbnail' => ''
+	    );
 	}
 
-	if($filtered['channel_id'] === false) {
-		if(ERROR_LOG) logger('YT: Missing Channel ID `'.$handle.'`.');
-		if(ERROR_FEED) $response_errors['id'] = 'Missing Channel ID `'.$handle.'`';
+	$has_error = false;
+
+	// Find the Channel ID
+	if(!isset($feed['channel_id'])) {
+		$feed['channel_id'] = get_youtube_channel_id($handle);
+	}
+
+	if($feed['channel_id'] === false) {
+		if(ERROR_LOG) logger('YT: Missing Channel ID '.$handle.'.');
+		$has_error = true;
 	}
 
 	// Fetch the XML content from YouTube
-	$response = make_request('https://www.youtube.com/feeds/videos.xml?channel_id='.$filtered['channel_id']);
+	$response = make_request('https://www.youtube.com/feeds/videos.xml?channel_id='.$feed['channel_id']);
 
-	// Handle errors
+	// Handle response errors
 	if($response['errno'] !== 0) {
-		if(ERROR_LOG) logger('CURL: Channel `'.$handle.'`. Error: '.$response['error'].'.');
-		if(ERROR_FEED) $response_errors['curl'] = 'Channel `'.$handle.'`. Error: '.$response['error'].'.';
+		if(ERROR_LOG) logger('CURL: Channel '.$handle.'. Error: '.$response['error'].'.');
+		$has_error = true;
 	} 
 	
 	if($response['code'] !== 200) {
-		if(ERROR_LOG) logger('YT: Could not fetch feed for channel `'.$handle.'`. Error: '.$response['code'].'.');
-		if(ERROR_FEED) $response_errors['feed_response'] = 'Could not fetch feed for channel `'.$handle.'`. Error: '.$response['code'].'.';
+		if(ERROR_LOG) logger('YT: Could not fetch feed for channel '.$handle.'. Error: '.$response['code'].'.');
+		$has_error = true;
 	}
 
-	// Finally - Maybe some kind of error page?
-	if(stripos($response['body'], '<!DOCTYPE html>') !== false) {
-		preg_match('/<title>(.*?)<\/title>/si', $response['body'], $errors);
-		$error = (isset($errors[1])) ? $errors[1] : 'Unknown';
-
-		if(ERROR_LOG) logger('YT: Invalid XML for channel `'.$handle.'`. Error: '.$error.'.');
-		if(ERROR_FEED) $response_errors['invalid_content'] = 'Invalid XML for channel `'.$handle.'`. Error: '.$error.'.';
+	// Handle content errors
+	if(substr($response['body'], 0, 6) !== '<?xml ') {
+		if(ERROR_LOG) logger('YT: Invalid data for channel '.$handle.'.');
+		$has_error = true;
 	}
 
-	if(empty($response_errors)) {
+	if(!$has_error) {	
 		// Load the XML
 		$xml = new SimpleXMLElement($response['body']);
-	
+
 		// Get Channel meta information
-		$filtered['channel_name'] = (strlen($xml->title) > 0) ? sanitize($xml->title) : $handle;
-		$filtered['channel_url'] = (strlen($xml->author->uri) > 0) ? sanitize($xml->author->uri)."/videos" : "#";
-		$filtered['items'] = array();
+		$feed['channel_name'] = (strlen($xml->title) > 0) ? sanitize($xml->title) : $handle;
+		$feed['channel_url'] = (strlen($xml->author->uri) > 0) ? sanitize($xml->author->uri)."/videos" : "https://youtube.com/@".$handle;
+		$feed['checked'] = $now;
+		$feed['http_code'] = $response['code'];
 	
 		// Loop through each item
 		foreach($xml->entry as $entry) {
@@ -112,7 +114,6 @@ if(!$filtered) {
 			$media = $entry->children($namespaces['media']);
 	
 			// Find basic information
-			$status = (isset($yt->status)) ? sanitize((string)$yt->status) : "";
 			$video_id = (isset($yt->videoId)) ? sanitize((string)$yt->videoId) : "";
 			$title = (isset($entry->title)) ? sanitize((string)$entry->title) : "";
 			$video_url = (isset($entry->link['href'])) ? sanitize((string)$entry->link['href']) : "#";
@@ -126,14 +127,9 @@ if(!$filtered) {
 			if(empty($video_id) OR empty($title) OR strpos($video_id, 'googleads') !== false) {
 				continue;
 			}
-			
-			// Skip/ignore live and premiere videos until they're published
-			if(!empty($status) AND ($status == 'live' OR $status == 'upcoming')) {
-				continue;
-			}
-	
+
 			// Only add unique videos
-			if(!array_search($video_id, array_column($filtered['items'], 'id'))) {
+			if(!array_search($video_id, array_column($feed['items'], 'id'))) {
 				// Format description, if there is a description
 				if(strlen($description) > 0) {
 					$description = htmlspecialchars($description);
@@ -149,7 +145,7 @@ if(!$filtered) {
 				));
 	
 				// Set up the embed url
-				$url_embed = trim(MAIN_URL)."watch.php?".$url_embed;
+				$url_embed = trim(MAIN_URL)."/watch.php?".$url_embed;
 	
 				// Sort out the description/item content
 				$content = '';
@@ -161,7 +157,7 @@ if(!$filtered) {
 					$content .= $description;
 				}
 	
-			    $filtered['items'][] = array(
+			    $feed['items'][] = array(
 					'id' => $video_id,
 					'title' => $title,
 					'link' => $url_embed,
@@ -171,38 +167,21 @@ if(!$filtered) {
 			    );
 			}
 	
-			unset($entry, $namespaces, $yt, $media, $status, $video_id, $title, $video_url, $published, $thumbnail, $description, $url_embed, $content);
+			unset($entry, $namespaces, $yt, $media, $video_id, $title, $video_url, $published, $thumbnail, $description, $url_embed, $content);
 		}
 	
 		// Sort by date_released DESC */
-		usort($filtered['items'], fn($a, $b) => $b['date_released'] <=> $a['date_released']);
-	} else {
-		$content = "<p>Unfortunately something went wrong getting the feed. Usually this resolves itself within a few hours!<br /><small>YouTube feeds often do not work between 5:00-12:00AM GMT (London, UK time).</small></p>";
-		$content .= "<p>";
-		foreach($response_errors as $key => $text) {
-			$content .= $key.": ".$text."</br>";
-		}
-		$content .= "</p>";
-
-		$filtered['channel_name'] = $handle;
-		$filtered['channel_url'] = "#";
-	    $filtered['items'][] = array(
-			'id' => '',
-			'title' => 'Error',
-			'link' => '',
-			'date_released' => $now,
-			'description' => $content,
-			'thumbnail' => ''
-	    );
+		usort($feed['items'], fn($a, $b) => $b['date_released'] <=> $a['date_released']);
+		
+		// Keep the 50 newest items
+		$feed['items'] = array_slice($feed['items'], 0, 50);
 	}
 
-	cache_set($handle, $filtered, CACHE_YT_PREFIX);
+	cache_set($handle, $feed, CACHE_YT_PREFIX);
 }
 
-/* ------------------------------------------------------------------------ */
-/* BUILD AND OUTPUT THE RSS FEED											*/
-/* ------------------------------------------------------------------------ */
-$builddate = $filtered['items'][0]['date_released']; // Get date from newest item
+// BUILD AND OUTPUT THE RSS FEED
+$builddate = $feed['items'][0]['date_released']; // Get date from newest item
 
 if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $now) {
 	header('HTTP/1.1 304 Not Modified', true);
@@ -215,8 +194,8 @@ header('Cache-Control: max-age='.CACHE_YT_TTL.', private', true);
 header('Last-Modified: '.date('r', $builddate), true);
 header('ETag: "'.$handle.'-'.$builddate.'"', true);
 
-echo generate_rss_feed($filtered, $builddate);
-if(SUCCESS_LOG) logger('YT: Feed processed for Channel ID `' . $filtered['channel_name'] . '`.', false);
+echo generate_rss_feed($feed, $builddate);
+if(SUCCESS_LOG) logger('YT: Feed processed for Channel ID `' . $feed['channel_name'] . '`.', false);
 
 exit;
 ?>

@@ -18,15 +18,19 @@ $handle = isset($_GET['ch']) ? sanitize($_GET['ch']) : '';
 $video_id = isset($_GET['vid']) ? sanitize($_GET['vid']) : '';
 
 // Only cached videos can be watched here
-$channel = cache_get($handle, CACHE_YT_PREFIX, 31104000); // 360 days. We don't care for the cache age, just that it's there.
+$channel = cache_get($handle, CACHE_YT_PREFIX); // 360 days. We don't care for the cache age, just that it's there.
 
 $video = false;
 if(is_array($channel)) {
 	$key = array_search($video_id, array_column($channel['items'], 'id'));
-	if($key !== false) $video = $channel['items'][$key];
+
+	if($key !== false) {
+		$video = $channel['items'][$key];
+	}
 }
 
 if(!$video) {
+	if(ERROR_LOG) logger('YT: Invalid or missing Video ID ('.$handle.': '.$video_id.') on watch.php.');
 	die("Please refresh your feeds and provide a valid Video ID.");
 }
 ?>

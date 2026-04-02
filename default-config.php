@@ -23,8 +23,8 @@
 /* CONFIGURATION															*/
 /* ------------------------------------------------------------------------ */
 	
-// Where is gooseRSS hosted?
-define('MAIN_URL', 'https://example.com/gooserss/'); 
+// Where is gooseRSS hosted? (without a trailing slash)
+define('MAIN_URL', 'https://example.com/gooserss'); 
 
 // Access key to be used in the URLs.
 // This access key is not super secret, but it helps against surface level attacks and general misuse.
@@ -58,13 +58,8 @@ define('CACHE_YT_PREFIX', 'yt_');
 define('CACHE_EZTV_PREFIX', 'eztv_');
 
 // Log runs per feed into error.log or success.log?
-// Common feed errors are also visible as a feed item. The feed silently fails if the access hash or id parameter are missing.
-// Leaving this on may result in large log files over time. Simply deleting either log file 'resets' the log.
+// Leaving this on may result in large log files over time. Deleting either log file 'resets' the log.
 // Set to true or false.
 define('SUCCESS_LOG', false);
 define('ERROR_LOG', false);
-
-// Output errors as feed items?
-// Set to true or false.
-define('ERROR_FEED', true);
 ?>

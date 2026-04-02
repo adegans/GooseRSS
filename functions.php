@@ -14,27 +14,35 @@
 /* MAKE SURE FOLDERS AND FILES ARE IN PLACE								 	*/
 /* ------------------------------------------------------------------------ */
 function check_config() {
-	$cache_folder = __DIR__ . CACHE_DIR;
+	$folder = __DIR__ . CACHE_DIR;
 
-	if(!is_dir($cache_folder)) {
-		@mkdir($cache_folder, 0755, true);
+	if(!is_dir($folder)) {
+		@mkdir($folder, 0755, true);
 	}
 
-	$timerfile = $cache_folder.'/timer.tmp';
+	$timerfile = $folder.'/timer.tmp';
 	if(!is_file($timerfile)) {
 		@file_put_contents($timerfile, 0);
 	}
+
+	// Delete orphaned cache files
+	cache_delete($folder);
+
 }
 
 /* ------------------------------------------------------------------------ */
 /* CACHING																	*/
 /* ------------------------------------------------------------------------ */
+
+// Store feed in cache
 function cache_set($key, $data, $prefix) {
 	$folder = __DIR__ . CACHE_DIR;
 	$file = $folder . '/' . $prefix . md5($key) . '.cache';
+
 	@file_put_contents($file, serialize($data));
 }
 
+// Get feed from cache
 function cache_get($key, $prefix) {
 	$folder = __DIR__ . CACHE_DIR;
 	$file = $folder . '/' . $prefix . md5($key) . '.cache';
@@ -47,31 +55,33 @@ function cache_get($key, $prefix) {
 	return unserialize(file_get_contents($file));
 }
 
-function cache_delete($ttl) {
-	$folder = __DIR__ . CACHE_DIR;
+// Delete cache if not modified for a month
+function cache_delete($folder) {
 	$timerfile = $folder . '/timer.tmp';
 	$timer = sanitize((int)file_get_contents($timerfile));
-	$now = time();
-
-	if($timer < $now - 86400) {
-		if(is_dir($folder) AND ($handle = opendir($folder))) {
-		    // Loop through all files
+	$today = mktime(11, 0, 0, date('n'), date('j'), date('Y'));
+	$one_month_ago = $today - 2592000;
+	
+	if($timer < $one_month_ago) {
+		if(is_dir($folder) AND $handle = opendir($folder)) {
 	        while(($file = readdir($handle)) !== false) {
 				// Only delete .cache files
-				if($file == '.' OR $file == '..' OR !is_file($folder.$file) OR substr($file, -6) != '.cache') {
+				if($file == '.' OR $file == '..' OR substr($file, -6) != '.cache') {
 					continue;
 				}
+	
+				// Delete old and orphaned cache files
+				if(filemtime($folder.'/'.$file) < $one_month_ago) {
+					@unlink($folder.'/'.$file);
 
-				// Delete if expired (also deletes orphaned file as they expire naturally)
-				if(filemtime($folder.$file) < ($now - $ttl)) {
-					@unlink($folder.$file);
+					if(SUCCESS_LOG) logger('CACHE: Deleted file ' . $file . '.', false);
 				}
 	        }
 			
 	        closedir($handle);
 	    }
 
-		@file_put_contents($timerfile, $now);
+		@file_put_contents($timerfile, $today);
 	}
 }
 

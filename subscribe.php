@@ -27,19 +27,15 @@ if(!empty($handle)) {
 	// It's a YouTube Handle?
 	if(substr($handle, 0, 3) == "%40" OR substr($handle, 0, 1) == "@") {
 		$handle = str_replace(array("%40", "@"), "", $handle);
-		$feed_file = "ytrss.php";
+		$feed_file = "/ytrss.php";
 	}
 
 	// It's a IMDb ID?
 	if(substr($handle, 0, 2) == "tt") {
 		$handle = str_replace("tt", "", $handle);
-		$feed_file = "eztvrss.php";
+		$feed_file = "/eztvrss.php";
 	}
 }
-
-// Figure out the URL (for sharing this page)
-$current_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-$current_url .= '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 ?>
 
 <!DOCTYPE html>
@@ -79,7 +75,7 @@ $current_url .= '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
 	            <p>[ <a href="<?php echo MAIN_URL.$feed_file."?access=".ACCESS."&id=".$handle; ?>">Click to subscribe</a> ]</p>
 	            
 	            <p class="copy-hint">If clicking the above link doesn't prompt your RSS reader to subscribe, right-click the link and select "Copy Link Address" to paste it into your RSS reader.</p>
-	            <p><a href="<?php echo MAIN_URL."subscribe.php?access=".ACCESS; ?>">Make another link</a></p>
+	            <p><a href="<?php echo MAIN_URL."/subscribe.php?access=".ACCESS; ?>">Make another link</a></p>
 	        </div>
 
 		    <?php } else { ?>
