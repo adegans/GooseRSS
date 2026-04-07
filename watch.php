@@ -15,7 +15,7 @@ if(!defined('MAIN_PATH')) {
 }
 
 require_once(MAIN_PATH . '/config.php');
-require_once(MAIN_PATH . '/functions.php');
+require_once(MAIN_PATH . '/functions/functions.php');
 
 // Fetch the url parameters
 $handle = isset($_GET['ch']) ? sanitize($_GET['ch']) : '';

@@ -15,7 +15,7 @@ if(!defined('MAIN_PATH')) {
 }
 
 require_once(MAIN_PATH . '/config.php');
-require_once(MAIN_PATH . '/functions.php');
+require_once(MAIN_PATH . '/functions/functions.php');
 
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
