@@ -1,6 +1,6 @@
 <?php
 /* ---------------------------------------------------------------------------
-*  gooseRSS the YouTube and EZTV RSS Generator.
+*  GooseRSS the YouTube and EZTV RSS Generator.
 *
 *  COPYRIGHT NOTICE
 *  Copyright 2025-2026 Arnan de Gans. All Rights Reserved.
@@ -10,8 +10,12 @@
 *  liability that might arise from its use.
 --------------------------------------------------------------------------- */
 
-require_once(__DIR__ . '/config.php');
-require_once(__DIR__ . '/functions.php');
+if(!defined('MAIN_PATH')) {
+	define('MAIN_PATH', __DIR__);
+}
+
+require_once(MAIN_PATH . '/config.php');
+require_once(MAIN_PATH . '/functions.php');
 
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
@@ -48,7 +52,7 @@ $feed = cache_get($handle, CACHE_YT_PREFIX);
 
 if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 	// Create initial item for feeds without cache
-	if(!is_array($feed)) {
+	if(!$feed) {
 		$interval = floor(CACHE_EZTV_TTL / 3600);
 
 		$feed = array();
@@ -58,7 +62,7 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 			'id' => 'init',
 			'title' => 'Welcome to your new feed for channel '.$handle.'!',
 			'link' => $feed['channel_url'],
-			'date_released' => $now,
+			'date_released' => 946710000,
 			'description' => "<p>The feed will be processed shortly and videos will start to show up here!<br /><small>Feeds are refreshed approximately every ".$interval." hours.</small></p>",
 			'thumbnail' => ''
 	    );
@@ -114,6 +118,7 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 			$media = $entry->children($namespaces['media']);
 	
 			// Find basic information
+			$status = (isset($yt->status)) ? sanitize((string)$yt->status) : '';
 			$video_id = (isset($yt->videoId)) ? sanitize((string)$yt->videoId) : "";
 			$title = (isset($entry->title)) ? sanitize((string)$entry->title) : "";
 			$video_url = (isset($entry->link['href'])) ? sanitize((string)$entry->link['href']) : "#";
@@ -122,12 +127,17 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 			// Find additional information
 			$thumbnail = (isset($media->group->thumbnail->attributes()->url)) ? sanitize((string)$media->group->thumbnail->attributes()->url) : "";
 			$description = (isset($media->group->description)) ? sanitize((string)$media->group->description, true) : "";
-	
+
 			// Ignore if video id or title is missing, and ignore ads
 			if(empty($video_id) OR empty($title) OR strpos($video_id, 'googleads') !== false) {
 				continue;
 			}
 
+			// Skip/ignore live and premiere videos until they're published
+			if(!empty($status) AND ($status === 'live' OR $status === 'upcoming')) {
+				continue;
+			}
+		
 			// Only add unique videos
 			if(!array_search($video_id, array_column($feed['items'], 'id'))) {
 				// Format description, if there is a description

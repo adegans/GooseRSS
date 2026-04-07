@@ -1,6 +1,6 @@
 <?php
 /* ---------------------------------------------------------------------------
- * gooseRSS the YouTube and EZTV RSS Generator
+ * GooseRSS the YouTube and EZTV RSS Generator
  *
  * Generate links to subscribe to:
  *   https://yourdomain.com/subscribe.php?access=the-access-key

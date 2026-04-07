@@ -1,6 +1,6 @@
 <?php
 /* ---------------------------------------------------------------------------
-*  gooseRSS the YouTube and EZTV RSS Generator.
+*  GooseRSS the YouTube and EZTV RSS Generator.
 *
 *  COPYRIGHT NOTICE
 *  Copyright 2025-2026 Arnan de Gans. All Rights Reserved.
@@ -10,15 +10,19 @@
 *  liability that might arise from its use.
 --------------------------------------------------------------------------- */
 
-require_once(__DIR__ . '/config.php');
-require_once(__DIR__ . '/functions.php');
+if(!defined('MAIN_PATH')) {
+	define('MAIN_PATH', __DIR__);
+}
+
+require_once(MAIN_PATH . '/config.php');
+require_once(MAIN_PATH . '/functions.php');
 
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['handle']) ? strtolower(sanitize($_GET['handle'])) : '';
 
 // Basic "security"
 if(empty($access_key) OR $access_key !== trim(ACCESS)) {
-	echo 'Access key incorrect!';
+	die("Access key incorrect!");
 	if(ERROR_LOG) logger('YT: Access key incorrect on subscribe.php.');
 	exit;
 }

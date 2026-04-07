@@ -1,5 +1,5 @@
 // ------------------------------------------------------------------
-// EZRSS the YouTube and EZTV RSS Generator
+// GooseRSS the YouTube and EZTV RSS Generator
 // ------------------------------------------------------------------
 // Check if tab has focus and if so, prevent screen from sleeping while playing longer videos. 
 // Wake Lock is released when tab goes out of focus or is closed.

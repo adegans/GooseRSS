@@ -1,6 +1,6 @@
 <?php
 /* ---------------------------------------------------------------------------
-*  gooseRSS the YouTube and EZTV RSS Generator.
+*  GooseRSS the YouTube and EZTV RSS Generator.
 *
 *  COPYRIGHT NOTICE
 *  Copyright 2025-2026 Arnan de Gans. All Rights Reserved.
@@ -10,14 +10,21 @@
 *  liability that might arise from its use.
 --------------------------------------------------------------------------- */
 
+if(!defined('MAIN_PATH')) die("403 - Nuh-uh!!");
+
 /* ------------------------------------------------------------------------ */
 /* MAKE SURE FOLDERS AND FILES ARE IN PLACE								 	*/
 /* ------------------------------------------------------------------------ */
 function check_config() {
-	$folder = __DIR__ . CACHE_DIR;
+	$folder = MAIN_PATH . CACHE_DIR;
 
 	if(!is_dir($folder)) {
 		@mkdir($folder, 0755, true);
+	}
+
+	$indexfile = $folder.'/index.html';
+	if(!is_file($indexfile)) {
+		@file_put_contents($indexfile, '');
 	}
 
 	$timerfile = $folder.'/timer.tmp';
@@ -36,7 +43,7 @@ function check_config() {
 
 // Store feed in cache
 function cache_set($key, $data, $prefix) {
-	$folder = __DIR__ . CACHE_DIR;
+	$folder = MAIN_PATH . CACHE_DIR;
 	$file = $folder . '/' . $prefix . md5($key) . '.cache';
 
 	@file_put_contents($file, serialize($data));
@@ -44,7 +51,7 @@ function cache_set($key, $data, $prefix) {
 
 // Get feed from cache
 function cache_get($key, $prefix) {
-	$folder = __DIR__ . CACHE_DIR;
+	$folder = MAIN_PATH . CACHE_DIR;
 	$file = $folder . '/' . $prefix . md5($key) . '.cache';
 
 	// If no file exists
@@ -143,7 +150,7 @@ function human_timestamp($seconds) {
 function logger($error_message, $error = true) {
 	// Path of the log file where stuff needs to be logged
 	$log_file = ($error) ? "error.log" : "success.log";
-	$log_file = __DIR__ . '/' . $log_file;
+	$log_file = MAIN_PATH . '/' . $log_file;
 	
 	// Add a newline and date and store the text
 	$error_message = "[" . date('r', time()) . "] " . $error_message . "\n";
@@ -158,7 +165,7 @@ function make_request($url) {
 	    "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:142.0) Gecko/20100101 Firefox/142.0",
 	    "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
 	    "Accept-Language: en-US,en;q=0.5",
-	    "Accept-Encoding: gzip, deflate, br, zstd",
+	    "Accept-Encoding: gzip, deflate",
 	    "Connection: keep-alive",
 	    "Upgrade-Insecure-Requests: 1",
 	    "Sec-Fetch-Dest: document",
@@ -186,7 +193,7 @@ function make_request($url) {
 	curl_setopt($ch, CURLOPT_TIMEOUT, 3);
 	curl_setopt($ch, CURLOPT_VERBOSE, false);
 	// Do some cookies
-	$cookie_storage = __DIR__ . CACHE_DIR . '/sessions.cookie';
+	$cookie_storage = MAIN_PATH . CACHE_DIR . '/sessions.cookie';
 	curl_setopt($ch, CURLOPT_COOKIEJAR, $cookie_storage);
 	curl_setopt($ch, CURLOPT_COOKIEFILE, $cookie_storage);
 

@@ -1,4 +1,4 @@
-# gooseRSS
+# GooseRSS
 
 Turn YouTube channels into RSS feeds you can subscribe to so you'll always know when new videos are uploaded.  
 Watch Youtube videos from your favorite channels through the included watch page without ads.  
@@ -13,16 +13,12 @@ Get notified when new TV Shows you follow become available through EZTV, ready f
 Installation is simple and only takes a few minutes.  
 You'll need a working (localhost) server that works with PHP 8 or newer. SimpleXML and common PHP modules as standard, and that's it.
 
-- Download the [zip file](https://github.com/adegans/gooseRSS/archive/refs/heads/main.zip) from Github.
-
+- Download the [zip file](https://github.com/adegans/GooseRSS/archive/refs/heads/main.zip) from Github.
 - Extract and upload all files to your webserver, this can be in the document root or a subfolder.  
 For example https://domain.tld/gooserss/ or simply https://domain.tld/.
-
 - Copy `default-config.php` to `config.php`.
-
 - Open the `config.php` file and set your settings.  
 Each setting is briefly explained in the file. There are a few settings for caching, what torrent quality to look for, and you set your shared access key here.
-
 - For testing you can enable the `ERROR_LOG` and `SUCCESS_LOG` settings.  
 This logs errors and successful runs to `error.log` and `success.log` in the root folder.
 
@@ -43,7 +39,7 @@ For example NetNewsWire, Vienna or a (self)hosted service like FreshRSS, Nextclo
 https://yourdomain.com/ytrss.php?access=the-access-key&id=channel_handle
 
 The YouTube channel you're subscribing to must be a valid Channel Name/Handle. This is the username prefixed with an '@'.  
-For gooseRSS, remove the '@' and use the plain name as the ID.  
+For GooseRSS, remove the '@' and use the plain name as the ID.  
 
 The Channel ID is usually visible on the main channel's page, next to the channel thumbnail.
 
@@ -51,7 +47,7 @@ The Channel ID is usually visible on the main channel's page, next to the channe
 https://yourdomain.com/eztvrss.php?access=the-access-key&id=tt12345678
 
 The TV Show you're subscribing to must be provided as a valid imdb id. This is a numeric value prefixed with 'tt'.  
-You can find imdb ids on the IMdB.com website and elsewhere. gooseRSS accepts the imdb id with or with the 'tt' prefix.
+You can find imdb ids on the IMdB.com website and elsewhere. GooseRSS accepts the imdb id with or with the 'tt' prefix.
 
 ### Finding the YouTube Channel Handle.
 
@@ -61,10 +57,3 @@ You can find it on most Channel main pages below the header image.
 [![Find a channel handle](https://ajdg.solutions/assets/github-repo-assets/youtubeembed-channel-screenshot.webp)](https://ajdg.solutions/assets/github-repo-assets/youtubeembed-channel-screenshot.webp)
 
 If it's not there you can get it from the channel details or the channel url in your browser.
-
-## Technical Stuff
-- All feeds are cached as a serialized array in files. One file per feed.
-- Each feed is compatible with the `HTTP_IF_MODIFIED_SINCE` (or `304 NOT MODIFIED`) header for reduced traffic.
-- All TV Shows are presented as a Magnet link.
-- The Watch Page can only embed videos that are have their info in the cache.
-- Live and Premiere videos are ignored until they become watchable. This works on the assumption that the released video will still be available in the feed (last 15 videos) when that happens.

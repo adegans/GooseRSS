@@ -1,6 +1,6 @@
 <?php
 /* ---------------------------------------------------------------------------
-*  gooseRSS the YouTube and EZTV RSS Generator.
+*  GooseRSS the YouTube and EZTV RSS Generator.
 *
 *  COPYRIGHT NOTICE
 *  Copyright 2025-2026 Arnan de Gans. All Rights Reserved.
@@ -10,8 +10,12 @@
 *  liability that might arise from its use.
 --------------------------------------------------------------------------- */
 
-require_once(__DIR__ . '/config.php');
-require_once(__DIR__ . '/functions.php');
+if(!defined('MAIN_PATH')) {
+	define('MAIN_PATH', __DIR__);
+}
+
+require_once(MAIN_PATH . '/config.php');
+require_once(MAIN_PATH . '/functions.php');
 
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
@@ -43,7 +47,7 @@ $feed = cache_get($handle, CACHE_EZTV_PREFIX);
 
 if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 	// Create initial item for feeds without cache
-	if(!is_array($feed)) {
+	if(!$feed) {
 		$interval = floor(CACHE_EZTV_TTL / 3600);
 
 		$feed = array();
@@ -53,7 +57,7 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 			'id' => 'init',
 			'title' => 'Welcome to your new feed for TV Show '.$handle.'!',
 			'link' => $feed['channel_url'],
-			'date_released' => $now,
+			'date_released' => 946710000,
 			'description' => "<p>The feed will be processed shortly and episodes will start to show up here!<br /><small>Feeds are refreshed approximately every ".$interval." hours.</small></p>",
 	    );
 	}
