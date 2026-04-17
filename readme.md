@@ -58,3 +58,7 @@ You can find it on most Channel main pages below the header image.
 [![Find a channel handle](https://ajdg.solutions/assets/github-repo-assets/youtubeembed-channel-screenshot.webp)](https://ajdg.solutions/assets/github-repo-assets/youtubeembed-channel-screenshot.webp)
 
 If it's not there you can get it from the channel details or the channel url in your browser.
+
+## Is GooseRSS useful for you?
+If you find GooseRSS useful and want to help out, please consider a small [token of thanks](https://www.arnan.me/donate/)!  
+Your donations will help as motivation. Thank you for your support!  
