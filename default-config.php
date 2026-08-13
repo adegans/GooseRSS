@@ -49,10 +49,6 @@ define('USER_AGENT', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:142.0) Ge
 // Where to keep the cache (without a trailing slash).
 define('CACHE_DIR', '/cache');
 
-// Cache lifetime in seconds (3600 = 1 hour, 86400 = 1 day).
-define('CACHE_YT_TTL', 21600); // Default: 21600 (6 hours). 
-define('CACHE_EZTV_TTL', 86400); // Default: 86400 (24 hours).
-
 // Cache file prefix. This is to help differentiate filenames in the /cache/ folder and usually does not need to be changed.
 define('CACHE_YT_PREFIX', 'yt_'); 
 define('CACHE_EZTV_PREFIX', 'eztv_');

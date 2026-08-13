@@ -16,6 +16,11 @@ if(!defined('MAIN_PATH')) die("403 - Nuh-uh!!");
 /* MAKE SURE FOLDERS AND FILES ARE IN PLACE								 	*/
 /* ------------------------------------------------------------------------ */
 function check_config() {
+	if(!defined('NOW')) define('NOW', time());
+	if(!defined('TODAY')) define('TODAY', mktime(11, 0, 0, date('n'), date('j'), date('Y')));
+	if(!defined('WEEK_AGO')) define('WEEK_AGO', TODAY - 604800);
+	if(!defined('MONTH_AGO')) define('MONTH_AGO', TODAY - 2592000);
+
 	$folder = MAIN_PATH . CACHE_DIR;
 
 	if(!is_dir($folder)) {
@@ -32,9 +37,13 @@ function check_config() {
 		@file_put_contents($timerfile, 0);
 	}
 
-	// Delete orphaned cache files
-	cache_delete($folder);
-
+	// Once a week, delete orphaned cache files
+	$timer = sanitize((int)file_get_contents($timerfile));
+	if($timer < WEEK_AGO) {
+		cache_delete($folder);
+	
+		@file_put_contents($timerfile, TODAY);
+	}
 }
 
 /* ------------------------------------------------------------------------ */
@@ -64,32 +73,27 @@ function cache_get($key, $prefix) {
 
 // Delete cache if not modified for a month
 function cache_delete($folder) {
-	$timerfile = $folder . '/timer.tmp';
-	$timer = sanitize((int)file_get_contents($timerfile));
-	$today = mktime(11, 0, 0, date('n'), date('j'), date('Y'));
-	$one_month_ago = $today - 2592000;
-	
-	if($timer < $one_month_ago) {
-		if(is_dir($folder) AND $handle = opendir($folder)) {
-	        while(($file = readdir($handle)) !== false) {
-				// Only delete .cache files
-				if($file == '.' OR $file == '..' OR substr($file, -6) != '.cache') {
-					continue;
-				}
-	
-				// Delete old and orphaned cache files
-				if(filemtime($folder.'/'.$file) < $one_month_ago) {
-					@unlink($folder.'/'.$file);
-
-					if(SUCCESS_LOG) logger('CACHE: Deleted file ' . $file . '.', false);
-				}
-	        }
+	if(is_dir($folder) AND $handle = opendir($folder)) {
+        while(($file = readdir($handle)) !== false) {
+			// Only delete .cache files
+			if($file == '.' OR $file == '..' OR substr($file, -6) != '.cache') {
+				continue;
+			}
 			
-	        closedir($handle);
-	    }
+			$content = unserialize(file_get_contents($folder.'/'.$file));
 
-		@file_put_contents($timerfile, $today);
-	}
+			// Delete old and orphaned cache files
+			if($content["checked"] < MONTH_AGO) {
+				@unlink($folder.'/'.$file);
+
+				if(SUCCESS_LOG) logger('CACHE: Deleted file ' . $file . '.', false);
+			}
+
+			unset($file, $content);
+        }
+		
+        closedir($handle);
+    }
 }
 
 /* ------------------------------------------------------------------------ */
@@ -250,16 +254,18 @@ function generate_rss_feed($filtered, $builddate) {
 	$rss .= "    <title>".$filtered['channel_name']."</title>\n";
 	$rss .= "    <description>RSS feed for ".$filtered['channel_name']."</description>\n";
 	$rss .= "    <link>".$filtered['channel_url']."</link>\n";
+	$rss .= "    <language>en-US</language>\n";
 	$rss .= "    <lastBuildDate>".date('r', $builddate)."</lastBuildDate>\n";
+	$rss .= "    <ttl>30</ttl>\n";
 	$rss .= "    <generator>gooseRSS</generator>\n";
 	
 	foreach($filtered['items'] as $item) {
 		$rss .= "    <item>\n";
 		$rss .= "      <title>".$item['title']."</title>\n";
-		$rss .= "      <link><![CDATA[".$item['link']."]]></link>\n";
-		$rss .= "      <pubDate>".date("r", $item['date_released'])."</pubDate>\n";
-		$rss .= "      <guid isPermaLink=\"false\">".md5($item['link'])."</guid>\n";
 		$rss .= "      <description><![CDATA[".$item['description']."]]></description>\n";
+		$rss .= "      <pubDate>".date("r", $item['date_released'])."</pubDate>\n";
+		$rss .= "      <guid isPermaLink=\"false\">item-".$item['id']."-".$item['date_released']."</guid>\n";
+		$rss .= "      <link>".htmlspecialchars($item['link'], ENT_QUOTES, 'UTF-8')."</link>\n";
 		$rss .= "    </item>\n";
 		
 		unset($item);

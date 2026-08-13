@@ -3,6 +3,17 @@
 Versioning is loose and lax, in fact there are no actual versions.  
 But here is the list of changes made over time, sorted by 'release' date.
 
+## August 12, 2026
+- Change: Added another attempt at detecting live videos in ytrss
+- Change: Added another attempt at detecting premiere videos in ytrss
+- Change: Moved time related vars into check_config as constants
+- Change: Repurposed timer.tmp to trigger cache deletion only once a week
+- Change: Better formatted the <link> item in RSS items
+- Change: Cache TTL is set at 7200 seconds
+- Fix: Newly added feeds not checked after first load/failure
+- Fix: More structured/unique guid for feed items
+- Fix: 304 header now uses newest feed item date instead of NOW
+
 ## April 15, 2026
 - Change: Softer theme for Subscribe and Watch page matching the GooseTOR dark theme
 
@@ -55,7 +66,7 @@ But here is the list of changes made over time, sorted by 'release' date.
 - Fix: Fail earlier on the watch page so there are no PHP warnings
 - New: Supports cookies to better imitate a browser
 
-## March 15, 2026
+## March 18, 2026
 - New: Video duration added to description
 - New: Ignore/skip Premiere videos until they're 'live'
 - New: Subscribe page, see default-config.php for details

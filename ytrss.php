@@ -17,10 +17,12 @@ if(!defined('MAIN_PATH')) {
 require_once(MAIN_PATH . '/config.php');
 require_once(MAIN_PATH . '/functions/functions.php');
 
+// Make sure certain files and folders exist and clean up cache
+check_config();
+$check_interval = NOW - 7200;
+
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
-$now = time();
-$check_interval = $now - CACHE_YT_TTL;
 
 // Basic "security"
 if(empty($access_key) OR $access_key !== trim(ACCESS)) {
@@ -44,26 +46,22 @@ if(substr($handle, 0, 1) == "@") {
 	$handle = substr($handle, 1);
 }
 
-// Make sure certain files and folders exist and clean up cache
-check_config();
-
 // Fetch from cache or YouTube
 $feed = cache_get($handle, CACHE_YT_PREFIX);
 
 if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 	// Create initial item for feeds without cache
 	if(!$feed) {
-		$interval = floor(CACHE_EZTV_TTL / 3600);
-
 		$feed = array();
 		$feed['channel_name'] = $handle;
 		$feed['channel_url'] = "https://youtube.com/@".$handle;
+		$feed['checked'] = NOW;
 	    $feed['items'][] = array(
 			'id' => 'init',
 			'title' => 'Welcome to your new feed for channel '.$handle.'!',
 			'link' => $feed['channel_url'],
-			'date_released' => 946710000,
-			'description' => "<p>The feed will be processed shortly and videos will start to show up here!<br /><small>Feeds are refreshed approximately every ".$interval." hours.</small></p>",
+			'date_released' => 946710000, // Year 2000 to make sure it's the first item
+			'description' => "<p>The feed will be processed shortly and videos will start to show up here!<br /><small>Feeds are refreshed approximately every 2 hours.</small></p>",
 			'thumbnail' => ''
 	    );
 	}
@@ -107,7 +105,7 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 		// Get Channel meta information
 		$feed['channel_name'] = (strlen($xml->title) > 0) ? sanitize($xml->title) : $handle;
 		$feed['channel_url'] = (strlen($xml->author->uri) > 0) ? sanitize($xml->author->uri)."/videos" : "https://youtube.com/@".$handle;
-		$feed['checked'] = $now;
+		$feed['checked'] = NOW;
 		$feed['http_code'] = $response['code'];
 	
 		// Loop through each item
@@ -117,8 +115,22 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 			$yt = $entry->children($namespaces['yt']);
 			$media = $entry->children($namespaces['media']);
 	
-			// Find basic information
+			// Try figure out the video status
 			$status = (isset($yt->status)) ? sanitize((string)$yt->status) : '';
+			$state = (isset($yt->state)) ? sanitize((string)$yt->state->attributes()->name) : '';
+			$premiere = (isset($yt->premiere)) ? sanitize((string)$yt->premiere) : '';
+
+			// Skip/ignore live and upcoming videos until they're published
+			if($status === 'live' OR $status === 'upcoming' OR $state === 'upcoming' OR $state === 'scheduled') {
+			    continue;
+			}
+
+			// Skip/ignore premiere videos until they're published
+			if(!empty($premiere) AND strtotime($premiere) > NOW) {
+				continue;
+			}
+		
+			// Find basic information
 			$video_id = (isset($yt->videoId)) ? sanitize((string)$yt->videoId) : "";
 			$title = (isset($entry->title)) ? sanitize((string)$entry->title) : "";
 			$video_url = (isset($entry->link['href'])) ? sanitize((string)$entry->link['href']) : "#";
@@ -133,11 +145,6 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 				continue;
 			}
 
-			// Skip/ignore live and premiere videos until they're published
-			if(!empty($status) AND ($status === 'live' OR $status === 'upcoming')) {
-				continue;
-			}
-		
 			// Only add unique videos
 			if(!array_search($video_id, array_column($feed['items'], 'id'))) {
 				// Format description, if there is a description
@@ -162,7 +169,9 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 			    if(!empty($thumbnail)) {
 				    $content .= "<p><a href=\"".$url_embed."\"><img src=\"".$thumbnail."\" /></a></p>";
 				}
+
 				$content .= "<p>Video links: <a href=\"".$url_embed."\">Watch embedded in browser</a> or <a href=\"".$video_url."\">watch on YouTube</a>.</p>";
+
 				if(strlen($description) > 0) {
 					$content .= $description;
 				}
@@ -193,14 +202,14 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 // BUILD AND OUTPUT THE RSS FEED
 $builddate = $feed['items'][0]['date_released']; // Get date from newest item
 
-if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $now) {
+if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $builddate) {
 	header('HTTP/1.1 304 Not Modified', true);
-	header('Cache-Control: max-age='.CACHE_YT_TTL.', private', true);
+	header('Cache-Control: max-age=7200, private', true);
 	exit;
 }
 
 header('Content-Type: application/rss+xml; charset=UTF-8', true);
-header('Cache-Control: max-age='.CACHE_YT_TTL.', private', true);
+header('Cache-Control: max-age=7200, private', true);
 header('Last-Modified: '.date('r', $builddate), true);
 header('ETag: "'.$handle.'-'.$builddate.'"', true);
 

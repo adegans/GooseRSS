@@ -17,10 +17,12 @@ if(!defined('MAIN_PATH')) {
 require_once(MAIN_PATH . '/config.php');
 require_once(MAIN_PATH . '/functions/functions.php');
 
+// Make sure certain files and folders exist and clean up cache
+check_config();
+$check_interval = NOW - 7200;
+
 $access_key = isset($_GET['access']) ? sanitize($_GET['access']) : '';
 $handle = isset($_GET['id']) ? strtolower(sanitize($_GET['id'])) : '';
-$now = time();
-$check_interval = $now - CACHE_EZTV_TTL;
 
 // Basic "security"
 if(empty($access_key) OR $access_key !== trim(ACCESS)) {
@@ -39,17 +41,12 @@ if(substr($handle, 0, 2) != "tt") {
 	$handle = "tt".$handle;
 }
 
-// Make sure certain files and folders exist and clean up cache
-check_config();
-
 // Fetch from cache or EZTV
 $feed = cache_get($handle, CACHE_EZTV_PREFIX);
 
 if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 	// Create initial item for feeds without cache
 	if(!$feed) {
-		$interval = floor(CACHE_EZTV_TTL / 3600);
-
 		$feed = array();
 		$feed['channel_name'] = $handle;
 		$feed['channel_url'] = "https://eztvx.to/search/".urlencode($handle);
@@ -57,8 +54,8 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 			'id' => 'init',
 			'title' => 'Welcome to your new feed for TV Show '.$handle.'!',
 			'link' => $feed['channel_url'],
-			'date_released' => 946710000,
-			'description' => "<p>The feed will be processed shortly and episodes will start to show up here!<br /><small>Feeds are refreshed approximately every ".$interval." hours.</small></p>",
+			'date_released' => 946710000, // Year 2000 to make sure it's the first item
+			'description' => "<p>The feed will be processed shortly and episodes will start to show up here!<br /><small>Feeds are refreshed approximately every 2 hours.</small></p>",
 	    );
 	}
 
@@ -98,7 +95,7 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 		preg_match('/^(.+?)\s[Ss]\d{2}(?:[Ee]\d{2})?/', sanitize($json['torrents'][0]['title']), $m);
 		$feed['channel_name'] = (strlen($m[1]) > 0) ? $m[1] : $handle;
 		$feed['channel_url'] = "https://eztvx.to/search/".urlencode($handle);
-		$feed['checked'] = $now;
+		$feed['checked'] = NOW;
 		$feed['http_code'] = $response['code'];
 	
 		// Loop through each item
@@ -140,7 +137,7 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 			    if(!empty($thumbnail)) {
 				    $content .= "<p><a href=\"".$url_magnet."\"><img src=\"".$thumbnail."\" /></a></p>";
 				}
-				$content .= "<p><strong>Seeds:</strong> ".$seeders."<br /><strong>Size:</strong> ".human_filesize($size)."<br /><strong>Magnet:</strong> <a href=\"".$url_magnet."\">".$filename."</a></p>";
+				$content .= "<p><strong>Seeds:</strong> ".$seeders." <small>(At the time of fetching the feed!)</small><br /><strong>Size:</strong> ".human_filesize($size)."<br /><strong>Magnet:</strong> <a href=\"".$url_magnet."\">".$filename."</a></p>";
 				$content .= "<p><strong>Links:</strong> <a href=\"https://www.imdb.com/title/".$handle."/\">IMDb page</a> / <a href=\"".$feed['channel_url']."\" title=\"Watch out for redirects and popups!\">All EZTV magnets</a><br /><strong>Magnet Hash:</strong> ".$hash."</p>";
 	
 		        $feed['items'][] = array(
@@ -168,14 +165,14 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 // BUILD AND OUTPUT THE RSS FEED
 $builddate = $feed['items'][0]['date_released']; // Get date from newest item
 
-if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $now) {
+if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= NOW) {
 	header('HTTP/1.1 304 Not Modified', true);
-	header('Cache-Control: max-age='.CACHE_EZTV_TTL.', private', true);
+	header('Cache-Control: max-age=7200, private', true);
 	exit;
 }
 
 header('Content-Type: application/rss+xml; charset=UTF-8', true);
-header('Cache-Control: max-age='.CACHE_EZTV_TTL.', private', true);
+header('Cache-Control: max-age=7200, private', true);
 header('Last-Modified: '.date('r', $builddate), true);
 header('ETag: "'.$handle.'-'.$builddate.'"', true);
 
