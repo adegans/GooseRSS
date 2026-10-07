@@ -29,16 +29,14 @@ if(empty($access_key) OR $access_key !== trim(ACCESS)) {
 }
 
 if($make_feed === true AND !empty($handle)) {
-	// It's a YouTube Handle?
-	if(substr($handle, 0, 3) == "%40" OR substr($handle, 0, 1) == "@") {
+	if(substr($handle, 0, 3) == "%40" OR substr($handle, 0, 1) == "@") { // It's a YouTube Handle?
 		$handle = str_replace(array("%40", "@"), "", $handle);
 		$feed_file = "/ytrss.php";
-	}
-
-	// It's a IMDb ID?
-	if(substr($handle, 0, 2) == "tt") {
+	} else if(substr($handle, 0, 2) == "tt") { // It's a IMDb ID?
 		$handle = str_replace("tt", "", $handle);
 		$feed_file = "/eztvrss.php";
+	} else {
+		$handle = "";	
 	}
 }
 ?>
@@ -81,6 +79,16 @@ if($make_feed === true AND !empty($handle)) {
 	            
 	            <p class="copy-hint">If clicking the above link doesn't prompt your RSS reader to subscribe, right-click the link and select "Copy Link Address". Then paste it into your RSS reader.</p>
 	            <p><a href="<?php echo MAIN_URL."/subscribe.php?access=".ACCESS; ?>">Make another link</a></p>
+	        </div>
+
+		    <?php } else if($make_feed === true AND empty($handle)) { ?>
+
+	        <div class="result">
+	            <strong>Something went wrong!</strong><br>
+	            <p>The entered value does not appear to be a valid YouTube handle or IMDb ID.</p>
+	            
+	            <p class="copy-hint">YouTube Channel Handles have an @ in front of them. IMDb ID's start with 'tt'.</p>
+	            <p><a href="<?php echo MAIN_URL."/subscribe.php?access=".ACCESS; ?>">Try again</a></p>
 	        </div>
 
 		    <?php } else { ?>

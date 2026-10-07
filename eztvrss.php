@@ -165,7 +165,7 @@ if(!$feed OR (isset($feed['checked']) AND $feed['checked'] < $check_interval)) {
 // BUILD AND OUTPUT THE RSS FEED
 $builddate = $feed['items'][0]['date_released']; // Get date from newest item
 
-if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= NOW) {
+if(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) AND strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $builddate) {
 	header('HTTP/1.1 304 Not Modified', true);
 	header('Cache-Control: max-age=7200, private', true);
 	exit;

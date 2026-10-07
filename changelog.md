@@ -3,6 +3,11 @@
 Versioning is loose and lax, in fact there are no actual versions.  
 But here is the list of changes made over time, sorted by 'release' date.
 
+## October 7, 2026
+- New: Message to warn if a YT Handle or IMDb ID is not formatted properly
+- Fix: .htaccess not properly redirects to the front-page for 404 errors
+- Fix: RSS feeds use the publish date for the newest item as the builddate
+
 ## August 12, 2026
 - Change: Added another attempt at detecting live videos in ytrss
 - Change: Added another attempt at detecting premiere videos in ytrss
